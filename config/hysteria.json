@@ -1,0 +1,23 @@
+{
+  "listen": ":30000",
+  "tls": {
+    "cert": "/root/jp.absx.online.crt",
+    "key": "/root/jp.absx.online.key"
+  },
+  "auth": {
+    "type": "password",
+    "password": "absxsfriends123456"
+  },
+  "masquerade": {
+    "type": "file",
+    "file": {
+      "dir": "/root/lxl66566.github.io"
+    }
+  },
+  "obfs": {
+    "type": "salamander",
+    "salamander": {
+      "password": "make_hysteria_great_again"
+    }
+  }
+}

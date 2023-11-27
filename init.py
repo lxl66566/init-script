@@ -7,72 +7,40 @@
 import json
 import os
 import platform
-from configparser import ConfigParser
 from contextlib import suppress
 from shutil import which
 from subprocess import run
 
+from .utils import colored, cut, error_exit
+
 os_info = {}
-configparser = ConfigParser()
+distro = ""
+# 多发行版通用的安装列表
+my_install_list = ["btop", "fish", "zoxide", "fzf", "ncdu", "caddy", "trojan"]
 
 
-def colored(msg: str, color: str):
-    match color:
-        case "red":
-            prefix = "\033[0;31;31m"
-        case "green":
-            prefix = "\033[0;31;32m"
-        case "yellow":
-            prefix = "\033[0;31;33m"
-        case "blue":
-            prefix = "\033[0;31;36m"
-        case _:
-            prefix = ""
-    return f"{prefix}{msg}\033[0m"
+def install_mylist():
+    match distro:
+        case "a":
+            run(("sudo", "paru", "-S", "--needed", *my_install_list), check=True)
+        case "d":
+            run(("sudo", "apt", "install", *my_install_list), check=True)
 
 
-def cut():
-    print("-" * 70)
+def install_paru():
+    assert os_info["NAME"] == "Arch Linux", "Only support Arch Linux"
+    assert which("git") is not None, "Git not found"
+    assert which("makepkg") is not None, "Makepkg not found"
 
-
-def error_exit(msg: str):
-    print(colored(msg, "red"))
-    exit(1)
-
-
-def check_package_manager() -> bool:
-    match os_info["NAME"]:
-        case "Arch Linux":
-            return which("paru") is not None
-
-
-def install(pac: list):
-    def install_paru():
-        assert os_info["NAME"] == "Arch Linux", "Only support Arch Linux"
-
-        # install base-devel
-        if which("makepkg") is None:
-            run(
-                ("sudo", "pacman", "-S", "--needed", "--noconfirm", "base-devel"),
-                check=True,
-            )
-        assert which("makepkg") is not None, "Makepkg not found"
-
-        run(("mkdir", "-p", "/tmp/init_script"), check=True)
-        run(
-            ("git", "clone", "https://aur.archlinux.org/paru-bin.git", "--depth=1"),
-            cwd="/tmp/init_script",
-            check=True,
-        )
-        run(("sudo", "makepkg", "-si"), check=True)
-
-    match os_info["NAME"]:
-        case "Arch Linux":
-            if not check_package_manager():
-                install_paru()
-            assert check_package_manager(), "Package manager can not be installed."
-
-            os.system("yes | paru -Syu --needed " + " ".join(pac))
+    if which("paru") is not None:
+        return
+    run(("mkdir", "-p", "/tmp/init_script"), check=True)
+    run(
+        ("git", "clone", "https://aur.archlinux.org/paru-bin.git", "--depth=1"),
+        cwd="/tmp/init_script",
+        check=True,
+    )
+    run(("makepkg", "-si"), check=True)
 
 
 def info():
@@ -94,6 +62,13 @@ def info():
             with open(file, "r") as f:
                 read_os_info(f)
     assert os_info, "Could not detect OS info."
+    match os_info["NAME"]:
+        case "Arch Linux":
+            distro = "a"
+        case "Debian GNU/Linux":
+            distro = "d"
+        case _:
+            error_exit("Unsupported OS.")
 
 
 def system_check():
@@ -101,19 +76,38 @@ def system_check():
         error_exit("This script is only for Linux.")
     if os.geteuid() != 0:
         error_exit("This script must be run as root.")
-    if which("git") is None:
-        error_exit("git must be installed.")
     info()
-    match os_info["NAME"]:
-        case "Arch Linux":
-            if which("pacman") is None:
-                error_exit("pacman must be installed.")
+    match distro:
+        case "a":
+            assert which("pacman") is not None
+        case "d":
+            assert which("apt") is not None
+
+
+def install_init():
+    match distro:
+        case "a":
+            run(("sudo", "pacman", "-Syu", "--noconfirm"))
+            run(
+                ("sudo", "pacman", "-S", "--noconfirm", "archlinux-keyring"),
+                check=True,
+            )
+            run(
+                ("sudo", "pacman", "-S", "--needed", "--noconfirm", "base-devel"),
+                check=True,
+            )
+        case "d":
+            run(("sudo", "apt", "update", "-y"))
+            run(("sudo", "apt", "upgrade", "-y"))
 
 
 def init():
     cut()
     print("""init-script by https://github.com/lxl66566/init-script""")
     cut()
+
+    system_check()
+    install_init()
 
 
 if __name__ == "__main__":

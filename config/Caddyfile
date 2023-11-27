@@ -1,0 +1,10 @@
+#{
+#	events {
+#		on cert_obtained exec bash ./link_cert.sh {event.data.certificate_path}
+#	}
+#}
+
+jp.absx.online {
+	root * STATIC_PATH
+	file_server
+}
