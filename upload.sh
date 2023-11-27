@@ -11,4 +11,4 @@ function error_exit()
 
 git add -A
 git commit -m $(date "+%Y%m%d-%H:%M:%S")
-git push origin code || error_exit "push failed"
+git push origin py || error_exit "push failed"

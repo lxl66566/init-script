@@ -57,10 +57,6 @@ function error_exit()
     exit 1
 }
 
-if [ $(uname) != "Linux" ]; then
-    error_exit "脚本只能执行在（我用过的） Linux 系统上"
-fi
-
 # get system information
 NAME=$(get_opsy)
 AARCH=$(uname -m)
