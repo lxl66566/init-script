@@ -4,11 +4,11 @@
   "local_port": 40000,
   "remote_addr": "127.0.0.1",
   "remote_port": 80,
-  "password": [""],
+  "password": [],
   "ssl": {
-    "cert": "/root/jp.absx.online.crt",
-    "key": "/root/jp.absx.online.key",
-    "fallback_port": 80,
+    "cert": "/etc/cert/jp.absx.online.crt",
+    "key": "/etc/cert/jp.absx.online.key",
+    "fallback_port": 443,
     "sni": "jp.absx.online"
   },
   "mux": {
@@ -18,9 +18,18 @@
   },
   "router": {
     "enabled": true,
-    "bypass": ["geoip:cn", "geoip:private", "geosite:cn", "geosite:private"],
-    "block": ["geosite:category-ads"],
-    "proxy": ["geosite:geolocation-!cn"],
+    "bypass": [
+      "geoip:cn",
+      "geoip:private",
+      "geosite:cn",
+      "geosite:private"
+    ],
+    "block": [
+      "geosite:category-ads"
+    ],
+    "proxy": [
+      "geosite:geolocation-!cn"
+    ],
     "default_policy": "proxy",
     "geoip": "/usr/share/trojan-go/geoip.dat",
     "geosite": "/usr/share/trojan-go/geosite.dat"

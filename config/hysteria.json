@@ -1,12 +1,12 @@
 {
   "listen": ":30000",
   "tls": {
-    "cert": "/root/jp.absx.online.crt",
-    "key": "/root/jp.absx.online.key"
+    "cert": "/etc/cert/jp.absx.online.crt",
+    "key": "/etc/cert/jp.absx.online.key"
   },
   "auth": {
     "type": "password",
-    "password": "absxsfriends123456"
+    "password": ""
   },
   "masquerade": {
     "type": "file",
