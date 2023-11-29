@@ -1,6 +1,14 @@
 import subprocess
 
 
+def rc(s: str, **kwargs):
+    """
+    rc means run with check.
+    """
+
+    subprocess.run(s, shell=True, check=True, **kwargs)
+
+
 def is_service_running(service_name):
     """
     检查服务是否正在运行

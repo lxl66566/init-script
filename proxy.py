@@ -14,7 +14,7 @@ from pathlib import Path
 from shutil import which
 from subprocess import run
 
-from .utils import is_service_running
+from .utils import is_service_running, rc
 
 MAIN_PATH = "/etc/absx_script"  # 证书和静态网站存放位置。请不要设为 /root，会出现权限问题。
 PROXY_PORT = {"hysteria": 30000, "trojan-go": 40000, "trojan": 50000}
@@ -45,10 +45,8 @@ def config_caddy():
     """
     配置 caddy 及其证书
     """
-    run(
+    rc(
         "git clone git@github.com:lxl66566/lxl66566.github.io.git -b main --depth 1",
-        shell=True,
-        check=True,
         cwd=MAIN_PATH,
     )
 
@@ -58,7 +56,7 @@ def config_caddy():
     )
 
     Path.open("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
-    run("sudo systemctl enable --now caddy", shell=True, check=True)
+    rc("sudo systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
 
     # ln cert
@@ -108,8 +106,8 @@ def config_hysteria():
             s = s.replace(r"/etc/hysteria/%i.yaml", r"/etc/hysteria/%i.json")
             Path(p).write_text(s, encoding="utf-8")
 
-    run("sudo systemctl daemon-reload", shell=True, check=True)
-    run("sudo systemctl enable --now hysteria-server@hysteria", shell=True, check=True)
+    rc("sudo systemctl daemon-reload")
+    rc("sudo systemctl enable --now hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
 
 
@@ -148,7 +146,7 @@ def config_trojan_go():
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False, encoding="utf-8")
 
-    run("sudo systemctl enable --now trojan-go", shell=True, check=True)
+    rc("sudo systemctl enable --now trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
 
 

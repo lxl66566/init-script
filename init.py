@@ -11,12 +11,12 @@ from contextlib import suppress
 from shutil import which
 from subprocess import run
 
-from .utils import colored, cut, error_exit
+from .utils import colored, cut, error_exit, rc
 
 os_info = {}
 distro = ""
 # 多发行版通用的安装列表
-my_install_list = ["btop", "fish", "zoxide", "fzf", "ncdu", "caddy", "trojan"]
+my_install_list = ["wget", "btop", "fish", "zoxide", "fzf", "ncdu", "caddy", "trojan"]
 
 
 def install_mylist():
@@ -34,13 +34,12 @@ def install_paru():
 
     if which("paru") is not None:
         return
-    run(("mkdir", "-p", "/tmp/init_script"), check=True)
-    run(
-        ("git", "clone", "https://aur.archlinux.org/paru-bin.git", "--depth=1"),
+    rc("mkdir -p /tmp/init_script")
+    rc(
+        "git clone https://aur.archlinux.org/paru-bin.git --depth=1",
         cwd="/tmp/init_script",
-        check=True,
     )
-    run(("makepkg", "-si"), check=True)
+    rc("makepkg -si")
 
 
 def info():
@@ -87,18 +86,12 @@ def system_check():
 def install_init():
     match distro:
         case "a":
-            run(("sudo", "pacman", "-Syu", "--noconfirm"))
-            run(
-                ("sudo", "pacman", "-S", "--noconfirm", "archlinux-keyring"),
-                check=True,
-            )
-            run(
-                ("sudo", "pacman", "-S", "--needed", "--noconfirm", "base-devel"),
-                check=True,
-            )
+            rc("sudo pacman -Syu --noconfirm")
+            rc("sudo pacman -S --noconfirm archlinux-keyring")
+            rc("sudo pacman -S --needed --noconfirm base-devel")
         case "d":
-            run(("sudo", "apt", "update", "-y"))
-            run(("sudo", "apt", "upgrade", "-y"))
+            rc("sudo apt update -y")
+            rc("sudo apt upgrade -y")
 
 
 def init():

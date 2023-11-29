@@ -5,26 +5,14 @@ from pathlib import Path
 
 import yaml
 
+from utils import rc
+
 
 def sync():
-    subprocess.run(
-        "rsync -avz jp:/etc/caddy/Caddyfile  ./config/Caddyfile", shell=True, check=True
-    )
-    subprocess.run(
-        "rsync -avz jp:/etc/hysteria/config.yaml  ./config/hysteria.yaml",
-        shell=True,
-        check=True,
-    )
-    subprocess.run(
-        "rsync -avz jp:/etc/trojan-go/config.json  ./config/trojan-go.json",
-        shell=True,
-        check=True,
-    )
-    subprocess.run(
-        "rsync -avz jp:/etc/trojan/config.json  ./config/trojan.json",
-        shell=True,
-        check=True,
-    )
+    rc("rsync -avz jp:/etc/caddy/Caddyfile  ./config/Caddyfile")
+    rc("rsync -avz jp:/etc/hysteria/config.yaml  ./config/hysteria.yaml")
+    rc("rsync -avz jp:/etc/trojan-go/config.json  ./config/trojan-go.json")
+    rc("rsync -avz jp:/etc/trojan/config.json  ./config/trojan.json")
 
 
 def update():
