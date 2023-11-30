@@ -34,7 +34,13 @@ case "$NAME" in
     ;;
 esac
 
-cd /tmp
+# 实在不知道要放哪边还不会有权限问题，因此出此下策，放根目录
+
+mypath="/absx"
+
+mkdir -p $mypath || error_exit "创建目录失败"
+cd $mypath
 git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
+sudo chmod 777 $mypath -R
 cd init-script
-python init.py
+python init.py $mypath

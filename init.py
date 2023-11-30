@@ -6,15 +6,18 @@
 
 import json
 import os
+import sys
 import platform
 from contextlib import suppress
 from shutil import which
 from subprocess import run
 
-from .utils import colored, cut, error_exit, rc
+from .utils import *
 
+mypath = ""
 os_info = {}
 distro = ""
+
 # 多发行版通用的安装列表
 my_install_list = ["wget", "btop", "fish", "zoxide", "fzf", "ncdu", "caddy", "trojan"]
 
@@ -28,7 +31,8 @@ def install_mylist():
 
 
 def install_paru():
-    assert os_info["NAME"] == "Arch Linux", "Only support Arch Linux"
+    assert distro == "a", "Only support Arch Linux"
+    assert not is_root(), "installing paru must not be root"
     assert which("git") is not None, "Git not found"
     assert which("makepkg") is not None, "Makepkg not found"
 
@@ -66,6 +70,8 @@ def info():
             distro = "a"
         case "Debian GNU/Linux":
             distro = "d"
+        case "Ubuntu":
+            distro = "u"
         case _:
             error_exit("Unsupported OS.")
 
@@ -73,13 +79,18 @@ def info():
 def system_check():
     if os.name != "posix" or platform.system() != "Linux":
         error_exit("This script is only for Linux.")
-    if os.geteuid() != 0:
-        error_exit("This script must be run as root.")
+
+    global mypath
+    try:
+        mypath = sys.argv[1].strip()
+    except IndexError:
+        error_exit("Usage: init-script <path>")
+
     info()
     match distro:
         case "a":
             assert which("pacman") is not None
-        case "d":
+        case "d" | "u":
             assert which("apt") is not None
 
 

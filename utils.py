@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 
 def rc(s: str, **kwargs):
@@ -19,6 +20,8 @@ def is_service_running(service_name):
     output = subprocess.check_output(cmd).decode().strip()
     return output == "active"
 
+def is_root():
+    return os.geteuid() == 0
 
 def colored(msg: str, color: str):
     match color:

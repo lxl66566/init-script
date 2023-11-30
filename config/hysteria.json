@@ -9,9 +9,9 @@
     "password": ""
   },
   "masquerade": {
-    "type": "file",
-    "file": {
-      "dir": "/root/lxl66566.github.io"
+    "proxy": {
+      "url": "https://jp.absx.online:80",
+      "rewriteHost": true
     }
   },
   "obfs": {

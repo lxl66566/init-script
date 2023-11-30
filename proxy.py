@@ -14,9 +14,10 @@ from pathlib import Path
 from shutil import which
 from subprocess import run
 
-from .utils import is_service_running, rc
+from utils import *
+from init import mypath
 
-MAIN_PATH = "/etc/absx_script"  # 证书和静态网站存放位置。请不要设为 /root，会出现权限问题。
+MAIN_PATH = mypath
 PROXY_PORT = {"hysteria": 30000, "trojan-go": 40000, "trojan": 50000}
 
 domain = ""
@@ -24,6 +25,7 @@ password = []
 cert_abspath = ""
 key_abspath = ""
 
+assert Path(MAIN_PATH).exists(), "main path does not exist"
 assert which("caddy") is not None, "caddy is not installed"
 assert which("hysteria") is not None, "hysteria is not installed"
 assert which("trojan") is not None, "trojan is not installed"
@@ -33,12 +35,26 @@ assert which("systemctl") is not None, "systemctl is not configured"
 
 def ask():
     global domain, password
+    temp = input(
+        f"是否使用目录 {MAIN_PATH} 作为证书存放位置，y 使用，或输入自定义根目录："
+    )
+    if temp.lower() != "y":
+        MAIN_PATH = temp.strip()
+        assert Path(MAIN_PATH).exists(), "存放位置不存在"
     domain = input("domain: ").strip()
     while pswd := input("password（每行一个，空行结束）:").strip():
         if pswd:
             password.append(pswd)
         else:
             break
+
+
+def check_cert():
+    """
+    检查证书是否存在
+    """
+    assert Path(cert_abspath).exists(), f"{cert_abspath} 位置未找到证书"
+    assert Path(key_abspath).exists(), f"{key_abspath} 位置未找到密钥"
 
 
 def config_caddy():
@@ -50,7 +66,7 @@ def config_caddy():
         cwd=MAIN_PATH,
     )
 
-    content = Path(".config//Caddyfile").read_text(encoding="utf-8")
+    content = Path("./config/Caddyfile").read_text(encoding="utf-8")
     content = content.replace(
         "STATIC_PATH", os.path.join(MAIN_PATH, "lxl66566.github.io")
     )
@@ -66,7 +82,9 @@ def config_caddy():
         for file in files:
             if file.endswith(".crt") or file.endswith(".key"):
                 cert_files.append(os.path.join(subdir, file))
-    assert len(cert_files) == 2, "找到了 {0} 个证书文件，应该只有 2 个".format(len(cert_files))
+    assert len(cert_files) == 2, "找到了 {0} 个证书文件，应该只有 2 个".format(
+        len(cert_files)
+    )
     for file in cert_files:
         filename = file.split("/")[-1]
         global cert_abspath, key_abspath
@@ -75,9 +93,8 @@ def config_caddy():
         elif filename.endswith(".key"):
             key_abspath = os.path.join(MAIN_PATH, filename)
         run("sudo", "ln", "-sf", file, MAIN_PATH, check=True)
-    assert os.path.exists(f"{MAIN_PATH}/{domain}.crt") and os.path.exists(
-        f"{MAIN_PATH}/{domain}.key"
-    ), "证书文件未成功链接"
+
+    check_cert()
 
 
 def config_hysteria():
@@ -106,7 +123,7 @@ def config_hysteria():
             s = s.replace(r"/etc/hysteria/%i.yaml", r"/etc/hysteria/%i.json")
             Path(p).write_text(s, encoding="utf-8")
 
-    rc("sudo systemctl daemon-reload")
+    run("sudo systemctl daemon-reload", shell=True)
     rc("sudo systemctl enable --now hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
 
