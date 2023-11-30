@@ -11,8 +11,12 @@ import platform
 from contextlib import suppress
 from shutil import which
 from subprocess import run
+import logging
 
-from .utils import *
+from utils import *
+
+
+logging.basicConfig(level=logging.INFO)
 
 mypath = ""
 os_info = {}
