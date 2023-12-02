@@ -7,12 +7,15 @@ import yaml
 
 from utils import rc
 
+vps_name = "jp"
+
 
 def sync():
-    rc("rsync -avz jp:/etc/caddy/Caddyfile  ./config/Caddyfile")
-    rc("rsync -avz jp:/etc/hysteria/config.yaml  ./config/hysteria.yaml")
-    rc("rsync -avz jp:/etc/trojan-go/config.json  ./config/trojan-go.json")
-    rc("rsync -avz jp:/etc/trojan/config.json  ./config/trojan.json")
+    assert vps_name, "vps_name is empty"
+    rc(f"rsync -avz {vps_name}:/etc/caddy/Caddyfile  ./config/Caddyfile")
+    rc(f"rsync -avz {vps_name}:/etc/hysteria/config.yaml  ./config/hysteria.yaml")
+    rc(f"rsync -avz {vps_name}:/etc/trojan-go/config.json  ./config/trojan-go.json")
+    rc(f"rsync -avz {vps_name}:/etc/trojan/config.json  ./config/trojan.json")
 
 
 def update():
@@ -45,5 +48,6 @@ def update():
 
 
 if __name__ == "__main__":
+    vps_name = "jp"
     sync()
     update()

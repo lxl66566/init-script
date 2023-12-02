@@ -1,5 +1,7 @@
-import subprocess
 import os
+import subprocess
+from pathlib import Path
+from shutil import which
 
 
 def rc(s: str, **kwargs):
@@ -10,7 +12,22 @@ def rc(s: str, **kwargs):
     subprocess.run(s, shell=True, check=True, **kwargs)
 
 
-def is_service_running(service_name):
+def rc_sudo(s: str, **kwargs):
+    """
+    rc_sudo means run with check, automaticly check sudo needs
+    """
+
+    subprocess.run("" if is_root() else "sudo " + s, shell=True, check=True, **kwargs)
+
+
+def exists(s: str) -> bool:
+    if s.startswith("/") or s.startswith("~"):
+        return Path(s).exists()
+    else:
+        return which(s) is not None
+
+
+def is_service_running(service_name: str):
     """
     检查服务是否正在运行
     :param service_name: 待检查的服务名
@@ -20,8 +37,14 @@ def is_service_running(service_name):
     output = subprocess.check_output(cmd).decode().strip()
     return output == "active"
 
+
 def is_root():
     return os.geteuid() == 0
+
+
+def current_dir():
+    return os.path.dirname(os.path.realpath(__file__))
+
 
 def colored(msg: str, color: str):
     match color:

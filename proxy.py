@@ -12,13 +12,13 @@ import os
 import subprocess
 from contextlib import suppress
 from pathlib import Path
-from shutil import which
 from subprocess import run
 
-from init import mypath
 from utils import *
 
-MAIN_PATH = mypath
+MAIN_PATH = ""
+distro = ""
+version = ""
 PROXY_PORT = {"hysteria": "30000", "trojan-go": "40000", "trojan": "50000"}
 
 domain = ""
@@ -26,12 +26,18 @@ password = []
 cert_abspath = ""
 key_abspath = ""
 
-assert Path(MAIN_PATH).exists(), "main path does not exist"
-assert which("caddy") is not None, "caddy is not installed"
-assert which("hysteria") is not None, "hysteria is not installed"
-assert which("trojan") is not None, "trojan is not installed"
-assert which("trojan-go") is not None, "trojan-go is not installed"
-assert which("systemctl") is not None, "systemctl is not configured"
+
+def init(main_path, distro_, version_):
+    assert exists("caddy"), "caddy is not installed"
+    assert exists("hysteria"), "hysteria is not installed"
+    assert exists("trojan"), "trojan is not installed"
+    assert exists("trojan-go"), "trojan-go is not installed"
+    assert exists("systemctl"), "systemctl is not configured"
+    global MAIN_PATH, distro, version
+    MAIN_PATH = main_path
+    assert Path(MAIN_PATH).exists(), "main path does not exist"
+    distro = distro_
+    version = version_
 
 
 def ask():
@@ -68,9 +74,7 @@ def config_caddy():
     )
 
     content = Path("./config/Caddyfile").read_text(encoding="utf-8")
-    content = content.replace(
-        "/root/lxl66566.github.io", os.path.join(MAIN_PATH, "lxl66566.github.io")
-    )
+    content = content.replace("/absx", MAIN_PATH)
 
     Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
@@ -78,6 +82,10 @@ def config_caddy():
     assert is_service_running("caddy"), "caddy 未正常启动！"
     logging.info("caddy 服务成功启动")
 
+    ln_caddy_cert(MAIN_PATH)
+
+
+def ln_caddy_cert(MAIN_PATH: str):
     # ln cert
     certs_dir = "/var/lib/caddy/certificates"
     cert_files = []
@@ -97,9 +105,9 @@ def config_caddy():
             key_abspath = os.path.join(MAIN_PATH, filename)
 
         # 这里如果用软连接会出现权限问题，硬链接则需要想办法定期更新。
-        run(("sudo", "ln", "-f", file, MAIN_PATH), check=True)
-        run(("sudo", "chmod", "777", cert_abspath), check=True)
-        run(("sudo", "chmod", "777", key_abspath), check=True)
+        rc_sudo(" ".join("ln -f", file, MAIN_PATH))
+        rc_sudo(" ".join("chmod 777", cert_abspath))
+        rc_sudo(" ".join("chmod 777", key_abspath))
 
     check_cert()
     logging.info("证书配置完成")
@@ -183,6 +191,7 @@ def config_trojan_go():
 
 
 if __name__ == "__main__":
+    init("/absx", "a", "6")  # arg for test
     ask()
     config_caddy()
     config_hysteria()
