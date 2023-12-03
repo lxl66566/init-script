@@ -3,6 +3,8 @@
 # My linux init script loader.
 #
 # https://github.com/lxl66566/init-script
+#
+# This script is now only work for Archlinux, Debian and Ubuntu.
 
 _red() {
     printf '\033[0;31;31m%b\033[0m' "$1"
@@ -23,10 +25,10 @@ get_opsy() {
 NAME=$(get_opsy)
 case "$NAME" in
     "Arch Linux*" )
-        yes | sudo pacman -Syu --needed git python || error_exit "安装所需依赖出错"
+        yes | pacman -Syu --needed git python || error_exit "安装所需依赖出错"
     ;;
     "Debian*" | "Ubuntu*" )
-        sudo apt update && sudo apt install git python || error_exit "安装所需依赖出错"
+        apt update && apt install git python || error_exit "安装所需依赖出错"
     ;;
     *)
         printf "发行版不受支持"
@@ -41,6 +43,6 @@ mypath="/absx"
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
 git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
-sudo chmod 777 $mypath -R
+chmod 777 $mypath -R
 cd init-script
 python init.py $mypath

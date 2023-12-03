@@ -78,7 +78,7 @@ def config_caddy():
 
     Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
-    rc("sudo systemctl enable --now caddy")
+    rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     logging.info("caddy 服务成功启动")
 
@@ -141,8 +141,8 @@ def config_hysteria():
             Path(p).write_text(s, encoding="utf-8")
 
     logging.info("修改服务成功")
-    run("sudo systemctl daemon-reload", shell=True)
-    rc("sudo systemctl enable --now hysteria-server@hysteria")
+    rc_sudo("systemctl daemon-reload", check=False)
+    rc_sudo("systemctl enable --now hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
     logging.info("hysteria 服务启动成功")
 
@@ -163,7 +163,7 @@ def config_trojan():
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     logging.info("trojan 配置完成")
-    run("sudo systemctl enable --now trojan", shell=True, check=True)
+    rc_sudo("systemctl enable --now trojan")
     assert is_service_running("trojan"), "trojan 服务启动失败"
     logging.info("trojan 服务启动成功")
 
@@ -185,7 +185,7 @@ def config_trojan_go():
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     logging.info("trojan-go 配置完成")
-    rc("sudo systemctl enable --now trojan-go")
+    rc_sudo("systemctl enable --now trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
     logging.info("trojan-go 服务启动成功")
 
