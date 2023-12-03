@@ -34,7 +34,7 @@ def info():
             if key and separator and value:
                 os_info[key.strip()] = value.strip()
 
-    global distro
+    global distro, version, os_info
     files = ("/etc/os-release", "/etc/redhat-release", "/etc/lsb-release")
     for file in files:
         with suppress():
@@ -46,6 +46,7 @@ def info():
             distro = "a"
         case "Debian GNU/Linux":
             distro = "d"
+            version = os_info["VERSION_ID"]
         case "Ubuntu":
             distro = "u"
         case _:
