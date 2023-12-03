@@ -21,6 +21,7 @@ def add_task_daily(s: str):
     try:
         with open("/etc/cron.daily/init-script", "a") as f:
             f.write(f"{s}\n")
+        rc_sudo("chmod +x /etc/cron.daily/init-script")
     except PermissionError:
         logging.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
