@@ -6,9 +6,9 @@
   "remote_port": 80,
   "password": [],
   "ssl": {
-    "cert": "/etc/cert/jp.absx.online.crt",
-    "key": "/etc/cert/jp.absx.online.key",
-    "fallback_port": 443,
+    "cert": "/absx/jp.absx.online.crt",
+    "key": "/absx/jp.absx.online.key",
+    "fallback_port": 80,
     "sni": "jp.absx.online"
   },
   "mux": {

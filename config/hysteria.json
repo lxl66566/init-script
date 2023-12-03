@@ -1,16 +1,17 @@
 {
   "listen": ":30000",
   "tls": {
-    "cert": "/etc/cert/jp.absx.online.crt",
-    "key": "/etc/cert/jp.absx.online.key"
+    "cert": "/absx/jp.absx.online.crt",
+    "key": "/absx/jp.absx.online.key"
   },
   "auth": {
     "type": "password",
     "password": ""
   },
   "masquerade": {
+    "type": "proxy",
     "proxy": {
-      "url": "https://jp.absx.online:80",
+      "url": "https://jp.absx.online",
       "rewriteHost": true
     }
   },
@@ -19,5 +20,6 @@
     "salamander": {
       "password": "make_hysteria_great_again"
     }
-  }
+  },
+  "ignoreClientBandwidth": true
 }
