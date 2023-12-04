@@ -9,7 +9,7 @@ def rc(s: str, **kwargs):
     rc means run with check.
     """
 
-    subprocess.run(s, shell=True, check=True, **kwargs)
+    return subprocess.run(s, shell=True, check=True, **kwargs)
 
 
 def rc_sudo(s: str, **kwargs):
@@ -17,7 +17,9 @@ def rc_sudo(s: str, **kwargs):
     rc_sudo means run with check, automaticly check sudo needs
     """
 
-    subprocess.run("" if is_root() else "sudo " + s, shell=True, check=True, **kwargs)
+    return subprocess.run(
+        "" if is_root() else "sudo " + s, shell=True, check=True, **kwargs
+    )
 
 
 def exists(s: str) -> bool:

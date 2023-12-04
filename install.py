@@ -5,7 +5,7 @@ from utils import *
 
 mypath = ""
 distro = ""
-version = ""
+version = 6.0
 
 # 多发行版通用的安装列表
 my_install_list = [
@@ -13,7 +13,6 @@ my_install_list = [
     "wget",
     "curl",
     "btop",
-    "fish",
     "zoxide",
     "fzf",
     "ncdu",
@@ -27,7 +26,7 @@ def init(main_path, distro_name, version_name):
     global mypath, distro, version
     mypath = main_path
     distro = distro_name
-    version = version_name
+    version = float(version_name)
     match distro:
         case "a":
             rc_sudo("pacman -Syu --noconfirm")
@@ -37,7 +36,7 @@ def init(main_path, distro_name, version_name):
             assert is_root(), "You need to be root to install packages."
             rc("apt update -y")
             rc("apt upgrade -y")
-            if version == "10":
+            if version <= "10":
                 rc(
                     "echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list"
                 )
@@ -66,14 +65,23 @@ def apt(*args):
     rc_sudo(" ".join("apt", "install", "-y", *args))
 
 
-def install_mylist():
+def install_mylist(l: list[str]):
     match distro:
         case "a":
-            pacman(*my_install_list)
+            pacman(*l)
         case "d" | "u":
-            apt(*my_install_list)
+            apt(*l)
     logging.info("install mylist success: ")
-    logging.info(" ".join(my_install_list))
+    logging.info(" ".join(l))
+
+
+def config():
+    rc(
+        "git clone https://github.com/lxl66566/dotfile.git -b main --depth 1",
+        cwd=mypath,
+    )
+    dotfile = mypath.rstrip("/") + "/dotfile"
+    rc(f"cp -rfu {dotfile}/home/absolutex/* ~", cwd=mypath)
 
 
 # because AUR has a lot of problems, i decide to install them manually instead of AUR
@@ -140,9 +148,70 @@ def install_hysteria():
     logging.info("install hysteria success")
 
 
+def install_fd():
+    match distro:
+        case "a":
+            pacman("fd")
+        case "d" | "u":
+            apt("fd-find")
+            rc("alias fd='fdfind'")
+            rc("funcsave fd")
+    logging.info("install fd success")
+
+
+def install_mcfly():
+    match distro:
+        case "a":
+            pacman("mcfly")
+        case _:
+            rc_sudo(
+                "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly"
+            )
+    logging.info("install mcfly success")
+
+
+def install_zoxide():
+    match distro:
+        case "a":
+            pacman("zoxide")
+        case _:
+            if version < 11:
+                rc_sudo(
+                    "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
+                )
+            else:
+                apt("zoxide")
+    logging.info("install zoxide success")
+
+
+def install_fish():
+    match distro:
+        case "a":
+            pacman("fish")
+        case "d":
+            if version < 11:
+                url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
+                package_name = rc(
+                    f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                rc(f"wget {url}{package_name}", cwd="/tmp")
+                rc_sudo("dpkg -i " + package_name, cwd="/tmp")
+            else:
+                apt("fish")
+        case "u":
+            apt("fish")
+    logging.info("fish installed")
+
+
 def install_all():
-    install_mylist()
+    install_fish()
+    install_mylist(my_install_list)
+    install_mcfly()
+    config()
     install_cron()
     install_caddy()
     install_trojan_go()
     install_hysteria()
+    install_fd()
