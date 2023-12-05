@@ -13,6 +13,7 @@ my_install_list = [
     "sudo",
     "wget",
     "curl",
+    "make",
     "btop",
     "lsof",
     "zoxide",
@@ -21,7 +22,6 @@ my_install_list = [
     "tldr",
     "trojan",
     "podman",
-    "neovim",
     "unzip",
 ]
 
@@ -318,6 +318,26 @@ def install_yazi():
     logging.info("yazi installed")
 
 
+def install_neovim():
+    match distro:
+        case "a":
+            pacman("neovim")
+        case _:
+            nvim_name = "nvim-linux64"
+            rc(
+                f"wget https://github.com/neovim/neovim/releases/download/stable/{nvim_name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc(
+                f"tar -xvaf /tmp/{nvim_name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc_sudo(f"install -Dm755 '/tmp/{nvim_name}/bin/nvim' '/usr/bin/nvim'")
+            rc_sudo(f"install -Dm644 '/tmp/{nvim_name}/lib/nvim' '/usr/bin/lib/nvim'")
+            rc_sudo(f"install -Dm755 '/tmp/{nvim_name}/man/man1' '/usr/share/man/man1'")
+            rc_sudo(f"install -Dm644 '/tmp/{nvim_name}/share/*' '/usr/bin/share'")
+
+
 def install_all():
     install_fish()
     install_mylist(my_install_list)
@@ -332,4 +352,6 @@ def install_all():
     install_fd()
     install_sd()
     install_rg()
+    install_yazi()
+    install_neovim()
     logging.info("all packages have installed")

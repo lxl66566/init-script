@@ -19,7 +19,7 @@ from utils import *
 MAIN_PATH = "/absx"
 distro = ""
 version = 6.0
-PROXY_PORT = {"hysteria": "30000", "trojan-go": "40000", "trojan": "50000"}
+PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": "50000"}
 
 domain = ""
 password = []
