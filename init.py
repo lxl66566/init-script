@@ -12,6 +12,7 @@ import sys
 from contextlib import suppress
 from subprocess import run
 
+import install
 from utils import *
 
 logging.basicConfig(level=logging.INFO)
@@ -41,16 +42,18 @@ def info():
             with open(file, "r") as f:
                 read_os_info(f)
     assert os_info, "Could not detect OS info."
-    match os_info["NAME"]:
+    match os_info.get("NAME"):
         case "Arch Linux":
             distro = "a"
+            version = 0
         case "Debian GNU/Linux":
             distro = "d"
-            version = os_info["VERSION_ID"]
+            version = os_info.get("VERSION_ID")
         case "Ubuntu":
             distro = "u"
         case _:
             error_exit("Unsupported OS.")
+    logging.info(f"OS detected success. distro: {distro}, version: {version}")
 
 
 def system_check():
@@ -62,13 +65,7 @@ def system_check():
         mypath = sys.argv[1].strip()
     except IndexError:
         error_exit("Usage: init-script <path>")
-
-    info()
-    match distro:
-        case "a":
-            assert exists("pacman")
-        case "d" | "u":
-            assert exists("apt")
+    logging.info(f"Path detected success. path: {mypath}")
 
 
 def init():
@@ -77,8 +74,10 @@ def init():
     cut()
 
     system_check()
-    install_init()
+    info()
+    logging.info("init success. next: install")
 
 
 if __name__ == "__main__":
     init()
+    install.init(mypath, distro, version)

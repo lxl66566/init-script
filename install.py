@@ -29,10 +29,12 @@ def init(main_path, distro_name, version_name):
     version = float(version_name)
     match distro:
         case "a":
+            assert exists("pacman")
             rc_sudo("pacman -Syu --noconfirm")
             rc_sudo("pacman -S --noconfirm archlinux-keyring")
             rc_sudo("pacman -S --needed --noconfirm base-devel")
         case "d" | "u":
+            assert exists("apt")
             assert is_root(), "You need to be root to install packages."
             rc("apt update -y")
             rc("apt upgrade -y")
@@ -50,6 +52,9 @@ def init(main_path, distro_name, version_name):
                 rc("apt upgrade -y")
                 rc("apt-get -y -t buster-backports install libseccomp2")
     logging.info("init success")
+    cut()
+    logging.info("starting to install all")
+    install_all()
 
 
 def pacman(*args):
@@ -205,13 +210,92 @@ def install_fish():
     logging.info("fish installed")
 
 
+def install_starship():
+    match distro:
+        case "a":
+            pacman("starship")
+        case "d" | "u":
+            rc_sudo("curl -sS https://starship.rs/install.sh | sh")
+    logging.info("starship installed")
+
+
+def install_cargo():
+    if exists("cargo"):
+        return
+    match distro:
+        case "a":
+            pacman("cargo")
+        case _:
+            rc_sudo("curl https://sh.rustup.rs -sSf | sh")
+
+
+def install_sd():
+    match distro:
+        case "a":
+            pacman("sd")
+        case "d":
+            if version < 13:
+                if not exists("cargo"):
+                    install_cargo()
+                rc("cargo install sd --locked")
+            else:
+                apt("rust-sd")
+        case "u":
+            apt("rust-sd")
+
+
+def install_rg():
+    match distro:
+        case "a":
+            pacman("ripgrep")
+        case "d" | "u":
+            if (distro == "d" and version < 12) or (distro == "u" and version < 18.10):
+                rc(
+                    "wget https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb",
+                    cwd="/tmp",
+                )
+                rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
+            else:
+                apt("ripgrep")
+
+
+def install_tldr():
+    match distro:
+        case "a":
+            pacman("tldr")
+        case _:
+            if exists("pip3"):
+                rc("pip3 install tldr")
+            elif exists("pip"):
+                rc("pip install tldr")
+            else:
+                logging.warning("cannot install tldr")
+
+
+def install_exa():
+    match distro:
+        case "a":
+            pacman("exa")
+        case _:
+            if distro == "d" or (distro == "u" and version >= 20.10):
+                apt("exa")
+            else:
+                rc("cargo install exa")
+
+
 def install_all():
     install_fish()
     install_mylist(my_install_list)
     install_mcfly()
+    install_starship()
+    install_exa()
     config()
+    install_cargo()
     install_cron()
     install_caddy()
     install_trojan_go()
     install_hysteria()
     install_fd()
+    install_sd()
+    install_rg()
+    install_tldr()

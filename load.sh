@@ -28,7 +28,7 @@ case "$NAME" in
         yes | pacman -Syu --needed git python || error_exit "安装所需依赖出错"
     ;;
     "Debian*" | "Ubuntu*" )
-        apt update && apt install git python || error_exit "安装所需依赖出错"
+        apt update && apt install git python3 || error_exit "安装所需依赖出错"
     ;;
     *)
         printf "发行版不受支持"
