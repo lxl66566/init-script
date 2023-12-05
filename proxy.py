@@ -19,7 +19,7 @@ from utils import *
 MAIN_PATH = "/absx"
 distro = ""
 version = 6.0
-PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": "50000"}
+PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
 
 domain = ""
 password = []
@@ -102,7 +102,7 @@ def config_caddy():
     logging.info("Caddyfile has been written.")
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
-    logging.info("caddy 服务成功启动")
+    logging.info("caddy 服务成功启动，等待 caddy 获取证书")
     time.sleep(8)  # 等待 caddy 获取证书
 
     ln_caddy_cert(MAIN_PATH)
@@ -188,6 +188,11 @@ def config_trojan():
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     logging.info("trojan 配置完成")
+
+    rc_sudo(
+        "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan.service"
+    )
+    rc_sudo("systemctl daemon-reload")
     rc_sudo("systemctl enable --now trojan")
     assert is_service_running("trojan"), "trojan 服务启动失败"
     logging.info("trojan 服务启动成功")
@@ -200,7 +205,7 @@ def config_trojan_go():
     with open("./config/trojan-go.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    config["local_port"] = str(PROXY_PORT["trojan-go"])
+    config["local_port"] = int(PROXY_PORT["trojan-go"])
     config["password"] = password
     config["ssl"]["cert"] = cert_abspath
     config["ssl"]["key"] = key_abspath
@@ -208,12 +213,17 @@ def config_trojan_go():
 
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-
     logging.info("trojan-go 配置完成")
+
+    rc_sudo(
+        "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan-go.service"
+    )
+    rc_sudo("systemctl daemon-reload")
     rc_sudo("systemctl enable --now trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
     logging.info("trojan-go 服务启动成功")
 
 
 if __name__ == "__main__":
-    init("/absx", "a", "6")  # arg for test
+    logging.basicConfig(level=logging.INFO)
+    init("/absx", "d", "12")  # arg for test

@@ -133,6 +133,17 @@ def install_cron():
     logging.info("install cron success")
 
 
+def install_base():
+    """
+    为了之后的 nvim 插件做准备，300MB，不想装可以不用
+    """
+    match distro:
+        case "a":
+            pacman("base-devel")
+        case "d" | "u":
+            apt("build-essential")
+
+
 def install_trojan_go():
     assert exists("unzip"), "unzip not found"
     rc(
@@ -251,6 +262,7 @@ def install_cargo():
             pacman("cargo")
         case _:
             rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
+    logging.info("cargo installed")
 
 
 def install_sd():
@@ -293,6 +305,7 @@ def install_rg():
                 rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
             else:
                 apt("ripgrep")
+    logging.info("rg installed")
 
 
 def install_exa():
@@ -312,9 +325,20 @@ def install_yazi():
         case "a":
             pacman("yazi", "ffmpegthumbnailer", "unarchiver", "jq", "poppler")
         case _:
-            if not exists("cargo"):
-                install_cargo()
-            cargo("yazi-fm")
+            # cargo("yazi-fm")
+            yazi_name = "yazi-x86_64-unknown-linux-gnu"
+            rc(
+                f"wget https://github.com/sxyazi/yazi/releases/download/v0.1.5/{yazi_name}.zip",
+                cwd="/tmp",
+            )
+            rc(
+                f"unzip /tmp/{yazi_name}.zip",
+                cwd="/tmp",
+            )
+            rc_sudo(f"install -Dm755 '/tmp/{yazi_name}/yazi' '/usr/bin/yazi'")
+            rc_sudo(
+                f"install -Dm644 '/tmp/{yazi_name}/completions/yazi.fish' '/usr/share/fish/vendor_completions.d/yazi.fish'"
+            )
     logging.info("yazi installed")
 
 
@@ -333,14 +357,16 @@ def install_neovim():
                 cwd="/tmp",
             )
             rc_sudo(f"install -Dm755 '/tmp/{nvim_name}/bin/nvim' '/usr/bin/nvim'")
-            rc_sudo(f"install -Dm644 '/tmp/{nvim_name}/lib/nvim' '/usr/bin/lib/nvim'")
-            rc_sudo(f"install -Dm755 '/tmp/{nvim_name}/man/man1' '/usr/share/man/man1'")
-            rc_sudo(f"install -Dm644 '/tmp/{nvim_name}/share/*' '/usr/bin/share'")
+            rc_sudo(f"cp -rfu '/tmp/{nvim_name}/lib/nvim' '/usr/lib/'")
+            rc_sudo(f"cp -rfu '/tmp/{nvim_name}/man/man1' '/usr/share/man'")
+            rc_sudo(f"cp -rfu /tmp/{nvim_name}/share /usr")
+    logging.info("neovim installed")
 
 
 def install_all():
     install_fish()
     install_mylist(my_install_list)
+    install_base()
     install_mcfly()
     install_starship()
     install_exa()
