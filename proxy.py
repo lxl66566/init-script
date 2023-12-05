@@ -10,15 +10,15 @@ import json
 import logging
 import os
 import subprocess
+import time
 from contextlib import suppress
 from pathlib import Path
-from subprocess import run
 
 from utils import *
 
-MAIN_PATH = ""
+MAIN_PATH = "/absx"
 distro = ""
-version = ""
+version = 6.0
 PROXY_PORT = {"hysteria": "30000", "trojan-go": "40000", "trojan": "50000"}
 
 domain = ""
@@ -27,33 +27,54 @@ cert_abspath = ""
 key_abspath = ""
 
 
-def init(main_path, distro_, version_):
+def get_info(main_path, distro_, version_):
+    global MAIN_PATH, distro, version
+    MAIN_PATH = main_path
+    assert Path(MAIN_PATH).exists(), "main path does not exist"
+    distro = distro_
+    version = float(version_)
+
+
+def init(*args):
     assert exists("caddy"), "caddy is not installed"
     assert exists("hysteria"), "hysteria is not installed"
     assert exists("trojan"), "trojan is not installed"
     assert exists("trojan-go"), "trojan-go is not installed"
     assert exists("systemctl"), "systemctl is not configured"
-    global MAIN_PATH, distro, version
-    MAIN_PATH = main_path
-    assert Path(MAIN_PATH).exists(), "main path does not exist"
-    distro = distro_
-    version = version_
+    get_info(*args)
+    ask()
+    config_caddy()
+    config_hysteria()
+    config_trojan()
+    config_trojan_go()
 
 
-def ask():
+def ask(**kwargs):
     global domain, password, MAIN_PATH
-    temp = input(
+    while temp := input(
         f"是否使用目录 {MAIN_PATH} 作为证书存放位置，y 使用，或输入自定义根目录："
-    )
-    if temp.lower() != "y":
-        MAIN_PATH = temp.strip()
-        assert Path(MAIN_PATH).exists(), "存放位置不存在"
-    domain = input("domain: ").strip()
-    while pswd := input("password（每行一个，空行结束）:").strip():
-        if pswd:
-            password.append(pswd)
+    ):
+        if temp.lower() != "y":
+            MAIN_PATH = temp.strip()
+            if not Path(MAIN_PATH).exists():
+                print("输入的根目录不存在，请重新输入")
+            else:
+                break
         else:
             break
+
+    domain = kwargs.get("domain") or input("domain: ").strip()
+
+    def ask_password():
+        password = []
+        while pswd := input("password（每行一个，空行结束）: ").strip():
+            if pswd:
+                password.append(pswd)
+            else:
+                break
+        return password
+
+    password = kwargs.get("password") or ask_password()
 
 
 def check_cert():
@@ -68,46 +89,50 @@ def config_caddy():
     """
     配置 caddy 及其证书
     """
-    rc(
-        "git clone git@github.com:lxl66566/lxl66566.github.io.git -b main --depth 1",
+    (Path(MAIN_PATH) / "lxl66566.github.io").exists() or rc(
+        "git clone https://github.com/lxl66566/lxl66566.github.io.git -b main --depth 1",
         cwd=MAIN_PATH,
     )
 
     content = Path("./config/Caddyfile").read_text(encoding="utf-8")
     content = content.replace("/absx", MAIN_PATH)
+    content = content.replace("jp.absx.online", domain)
 
     Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     logging.info("caddy 服务成功启动")
+    time.sleep(8)  # 等待 caddy 获取证书
 
     ln_caddy_cert(MAIN_PATH)
 
 
 def ln_caddy_cert(MAIN_PATH: str):
     # ln cert
-    certs_dir = "/var/lib/caddy/certificates"
+    certs_dir = "/var/lib/caddy"
     cert_files = []
     for subdir, dirs, files in os.walk(certs_dir):
         for file in files:
-            if file.endswith(".crt") or file.endswith(".key"):
+            if file == f"{domain}.crt" or file == f"{domain}.key":
                 cert_files.append(os.path.join(subdir, file))
-    assert len(cert_files) == 2, "找到了 {0} 个证书文件，应该只有 2 个".format(
-        len(cert_files)
+    assert len(cert_files) == 2, "找到了 {} 个证书文件，应该只有 2 个：\n{}".format(
+        len(cert_files),
+        "\n".join(cert_files),
     )
     for file in cert_files:
-        filename = file.split("/")[-1]
+        filename = file.rstrip("/").split("/")[-1]
         global cert_abspath, key_abspath
         if filename.endswith(".crt"):
             cert_abspath = os.path.join(MAIN_PATH, filename)
         elif filename.endswith(".key"):
             key_abspath = os.path.join(MAIN_PATH, filename)
 
-        # 这里如果用软连接会出现权限问题，硬链接则需要想办法定期更新。
-        rc_sudo(" ".join("ln -f", file, MAIN_PATH))
-        rc_sudo(" ".join("chmod 777", cert_abspath))
-        rc_sudo(" ".join("chmod 777", key_abspath))
+    logging.info("证书文件路径：\n{}".format("\n".join((cert_abspath, key_abspath))))
+    # 这里如果用软连接会出现权限问题，硬链接则需要想办法定期更新。
+    rc_sudo(" ".join(("ln -f", file, MAIN_PATH)))
+    rc_sudo(" ".join(("chmod 777", cert_abspath)))
+    rc_sudo(" ".join(("chmod 777", key_abspath)))
 
     check_cert()
     logging.info("证书配置完成")
@@ -141,7 +166,7 @@ def config_hysteria():
             Path(p).write_text(s, encoding="utf-8")
 
     logging.info("修改服务成功")
-    rc_sudo("systemctl daemon-reload", check=False)
+    rc_sudo("systemctl daemon-reload")
     rc_sudo("systemctl enable --now hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
     logging.info("hysteria 服务启动成功")
@@ -192,8 +217,3 @@ def config_trojan_go():
 
 if __name__ == "__main__":
     init("/absx", "a", "6")  # arg for test
-    ask()
-    config_caddy()
-    config_hysteria()
-    config_trojan()
-    config_trojan_go()

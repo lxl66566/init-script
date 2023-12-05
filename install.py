@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from subprocess import run
 
 from utils import *
@@ -13,20 +14,27 @@ my_install_list = [
     "wget",
     "curl",
     "btop",
+    "lsof",
     "zoxide",
     "fzf",
     "ncdu",
-    "caddy",
+    "tldr",
     "trojan",
     "podman",
+    "neovim",
+    "unzip",
 ]
 
 
-def init(main_path, distro_name, version_name):
+def get_info(main_path, distro_name, version_name):
     global mypath, distro, version
     mypath = main_path
     distro = distro_name
     version = float(version_name)
+
+
+def init(*args):
+    get_info(*args)
     match distro:
         case "a":
             assert exists("pacman")
@@ -36,9 +44,9 @@ def init(main_path, distro_name, version_name):
         case "d" | "u":
             assert exists("apt")
             assert is_root(), "You need to be root to install packages."
-            rc("apt update -y")
-            rc("apt upgrade -y")
-            if version <= "10":
+            rc_sudo("apt update -y")
+            rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
+            if version <= 11:
                 rc(
                     "echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list"
                 )
@@ -58,16 +66,23 @@ def init(main_path, distro_name, version_name):
 
 
 def pacman(*args):
-    rc_sudo(" ".join("pacman", "-S", "--needed", "--noconfirm", *args))
+    rc_sudo(" ".join(("pacman", "-S", "--needed", "--noconfirm", *args)))
 
 
 def paru(*args):
     assert not is_root(), "paru must be run as non-root user"
-    rc(" ".join("yes | paru -S --needed", *args))
+    rc(" ".join(("yes | paru -S --needed", *args)))
 
 
 def apt(*args):
-    rc_sudo(" ".join("apt", "install", "-y", *args))
+    rc_sudo(" ".join(("apt", "install", "-y", *args)))
+
+
+def cargo(*args):
+    if exists("cargo"):
+        rc_sudo(" ".join(("cargo install --locked", *args)))
+    else:
+        install_cargo()
 
 
 def install_mylist(l: list[str]):
@@ -76,17 +91,18 @@ def install_mylist(l: list[str]):
             pacman(*l)
         case "d" | "u":
             apt(*l)
-    logging.info("install mylist success: ")
-    logging.info(" ".join(l))
+    logging.info("install mylist success: {}".format(" ".join(l)))
 
 
 def config():
-    rc(
-        "git clone https://github.com/lxl66566/dotfile.git -b main --depth 1",
-        cwd=mypath,
-    )
+    if not (Path(mypath) / "dotfile").exists():
+        rc(
+            "git clone https://github.com/lxl66566/dotfile.git -b archlinux --depth 1",
+            cwd=mypath,
+        )
     dotfile = mypath.rstrip("/") + "/dotfile"
-    rc(f"cp -rfu {dotfile}/home/absolutex/* ~", cwd=mypath)
+    rc(f"cp -rf {dotfile}/home/absolutex/.config ~", cwd=mypath)
+    logging.info("copy config dotfile success")
 
 
 # because AUR has a lot of problems, i decide to install them manually instead of AUR
@@ -118,16 +134,20 @@ def install_cron():
 
 
 def install_trojan_go():
+    assert exists("unzip"), "unzip not found"
     rc(
         "wget https://github.com/p4gefau1t/trojan-go/releases/latest/download/trojan-go-linux-amd64.zip",
         cwd="/tmp",
     )
     rc("unzip trojan-go-linux-amd64.zip -d /tmp/trojan-go", cwd="/tmp")
-    rc_sudo("mv /tmp/trojan-go/trojan/go /usr/bin/")
-    rc_sudo("chmod +x /usr/bin/trojan-go")
+    rc_sudo("install -Dm 755 '/tmp/trojan-go/trojan-go' '/usr/bin/trojan-go'")
     rc_sudo(
-        "cp /tmp/trojan-go/example/trojan-go.service /etc/systemd/system/trojan-go.service"
+        "install -Dm 644 '/tmp/trojan-go/example/trojan-go.service' '/usr/lib/systemd/system/trojan-go.service'"
     )
+    rc_sudo(
+        "install -Dm 644 '/tmp/trojan-go/example/trojan-go@.service' '/usr/lib/systemd/system/trojan-go@.service'"
+    )
+    rc("mkdir -p /etc/trojan-go")
     logging.info("install trojan-go success")
 
 
@@ -149,7 +169,7 @@ def install_caddy():
 
 
 def install_hysteria():
-    rc_sudo("curl https://get.hy2.sh/ | bash")
+    rc_sudo("curl -fsSL https://get.hy2.sh/ | bash")
     logging.info("install hysteria success")
 
 
@@ -158,10 +178,12 @@ def install_fd():
         case "a":
             pacman("fd")
         case "d" | "u":
+            assert exists("fish"), "fishshell must been installed"
             apt("fd-find")
-            rc("alias fd='fdfind'")
-            rc("funcsave fd")
-    logging.info("install fd success")
+            rc("fish -c 'alias fd fdfind'")
+            # 但是并没有写入。。我也不知道为啥 alias 没生效。
+            # rc("fish -c 'funcsave fd'")
+    logging.info("fd success installed")
 
 
 def install_mcfly():
@@ -207,6 +229,7 @@ def install_fish():
                 apt("fish")
         case "u":
             apt("fish")
+    rc_sudo("chsh -s /usr/bin/fish")
     logging.info("fish installed")
 
 
@@ -215,10 +238,11 @@ def install_starship():
         case "a":
             pacman("starship")
         case "d" | "u":
-            rc_sudo("curl -sS https://starship.rs/install.sh | sh")
+            rc_sudo("curl -sS https://starship.rs/install.sh | sh -s -- -y")
     logging.info("starship installed")
 
 
+# 不要上当！！！这不是 cargo 的安装！
 def install_cargo():
     if exists("cargo"):
         return
@@ -226,22 +250,34 @@ def install_cargo():
         case "a":
             pacman("cargo")
         case _:
-            rc_sudo("curl https://sh.rustup.rs -sSf | sh")
+            rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
 
 
 def install_sd():
+    sd_version = "1.0.0"
+    sd_name = f"sd-v{sd_version}-x86_64-unknown-linux-musl"
     match distro:
         case "a":
             pacman("sd")
         case "d":
             if version < 13:
-                if not exists("cargo"):
-                    install_cargo()
-                rc("cargo install sd --locked")
+                rc(
+                    f"wget https://github.com/chmln/sd/releases/download/v{sd_version}/{sd_name}.tar.gz",
+                    cwd="/tmp",
+                )
+                rc(
+                    f"tar -xvaf /tmp/{sd_name}.tar.gz",
+                    cwd="/tmp",
+                )
+                rc_sudo(f"install -Dm755 '/tmp/{sd_name}/sd' '/usr/bin/sd'")
+                rc_sudo(
+                    f"install -Dm644 '/tmp/{sd_name}/completions/sd.fish' '/usr/share/fish/vendor_completions.d/sd.fish'"
+                )
             else:
                 apt("rust-sd")
         case "u":
             apt("rust-sd")
+    logging.info("sd installed")
 
 
 def install_rg():
@@ -259,19 +295,6 @@ def install_rg():
                 apt("ripgrep")
 
 
-def install_tldr():
-    match distro:
-        case "a":
-            pacman("tldr")
-        case _:
-            if exists("pip3"):
-                rc("pip3 install tldr")
-            elif exists("pip"):
-                rc("pip install tldr")
-            else:
-                logging.warning("cannot install tldr")
-
-
 def install_exa():
     match distro:
         case "a":
@@ -280,7 +303,19 @@ def install_exa():
             if distro == "d" or (distro == "u" and version >= 20.10):
                 apt("exa")
             else:
-                rc("cargo install exa")
+                cargo("exa")
+    logging.info("exa installed")
+
+
+def install_yazi():
+    match distro:
+        case "a":
+            pacman("yazi", "ffmpegthumbnailer", "unarchiver", "jq", "poppler")
+        case _:
+            if not exists("cargo"):
+                install_cargo()
+            cargo("yazi-fm")
+    logging.info("yazi installed")
 
 
 def install_all():
@@ -290,7 +325,6 @@ def install_all():
     install_starship()
     install_exa()
     config()
-    install_cargo()
     install_cron()
     install_caddy()
     install_trojan_go()
@@ -298,4 +332,4 @@ def install_all():
     install_fd()
     install_sd()
     install_rg()
-    install_tldr()
+    logging.info("all packages have installed")

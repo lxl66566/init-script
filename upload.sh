@@ -10,5 +10,6 @@ function error_exit()
 }
 
 git add -A
+# git commit -m "tested in Debian 12, fix many bugs"
 git commit -m $(date "+%Y%m%d-%H:%M:%S")
 git push origin py || error_exit "push failed"

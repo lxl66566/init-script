@@ -5,6 +5,8 @@
 # https://github.com/lxl66566/init-script
 #
 # This script is now only work for Archlinux, Debian and Ubuntu.
+#
+# PLEASE RUN AS ROOT, YOU ARE AWARE OF THE RISKS INVOLVED AND CONTINUE.
 
 _red() {
     printf '\033[0;31;31m%b\033[0m' "$1"
@@ -24,10 +26,10 @@ get_opsy() {
 
 NAME=$(get_opsy)
 case "$NAME" in
-    "Arch Linux*" )
+    Arch Linux* )
         yes | pacman -Syu --needed git python || error_exit "安装所需依赖出错"
     ;;
-    "Debian*" | "Ubuntu*" )
+    Debian* | Ubuntu* )
         apt update && apt install git python3 || error_exit "安装所需依赖出错"
     ;;
     *)
@@ -43,6 +45,6 @@ mypath="/absx"
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
 git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
-chmod 777 $mypath -R
+chmod 777 $mypath -R || error_exit "授权失败"
 cd init-script
-python init.py $mypath
+python3 init.py $mypath

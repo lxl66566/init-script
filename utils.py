@@ -1,7 +1,8 @@
+import logging
 import os
+import pathlib
+import shutil
 import subprocess
-from pathlib import Path
-from shutil import which
 
 
 def rc(s: str, **kwargs):
@@ -17,16 +18,18 @@ def rc_sudo(s: str, **kwargs):
     rc_sudo means run with check, automaticly check sudo needs
     """
 
-    return subprocess.run(
-        "" if is_root() else "sudo " + s, shell=True, check=True, **kwargs
-    )
+    if is_root():
+        return rc(s, **kwargs)
+    else:
+        logging.info("sudo run: {}".format(s))
+        return subprocess.run(f"sudo {s}", shell=True, check=True, **kwargs)
 
 
 def exists(s: str) -> bool:
     if s.startswith("/") or s.startswith("~"):
-        return Path(s).exists()
+        return pathlib.Path(s).exists()
     else:
-        return which(s) is not None
+        return shutil.which(s) is not None
 
 
 def is_service_running(service_name: str):

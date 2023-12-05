@@ -13,6 +13,7 @@ from contextlib import suppress
 from subprocess import run
 
 import install
+import proxy
 from utils import *
 
 logging.basicConfig(level=logging.INFO)
@@ -33,26 +34,29 @@ def info():
                 continue
             key, separator, value = line and line.partition("=")
             if key and separator and value:
-                os_info[key.strip()] = value.strip()
+                os_info[key.strip()] = value.strip().strip('"')
 
     global distro, version, os_info
     files = ("/etc/os-release", "/etc/redhat-release", "/etc/lsb-release")
     for file in files:
-        with suppress():
+        with suppress(FileNotFoundError):
             with open(file, "r") as f:
                 read_os_info(f)
     assert os_info, "Could not detect OS info."
-    match os_info.get("NAME"):
-        case "Arch Linux":
-            distro = "a"
-            version = 0
-        case "Debian GNU/Linux":
-            distro = "d"
-            version = os_info.get("VERSION_ID")
-        case "Ubuntu":
-            distro = "u"
-        case _:
-            error_exit("Unsupported OS.")
+    if os_info.get("NAME").startswith("Arch"):
+        distro = "a"
+        version = 0
+    elif os_info.get("NAME").startswith("Debian"):
+        distro = "d"
+        version = os_info.get("VERSION_ID")
+    elif os_info.get("NAME").startswith("Ubuntu"):
+        distro = "u"
+        version = os_info.get("VERSION_ID")
+    else:
+        logging.error(
+            f"""found NAME: {os_info.get("NAME")}, version: {os_info.get("VERSION_ID")}"""
+        )
+        error_exit("Unsupported OS.")
     logging.info(f"OS detected success. distro: {distro}, version: {version}")
 
 
@@ -75,9 +79,11 @@ def init():
 
     system_check()
     info()
+    rc_sudo(f"chmod 777 {mypath} -R")
     logging.info("init success. next: install")
 
 
 if __name__ == "__main__":
     init()
     install.init(mypath, distro, version)
+    proxy.init(mypath, distro, version)
