@@ -4,7 +4,7 @@ from subprocess import run
 
 from utils import *
 
-mypath = ""
+mypath = "/absx"
 distro = ""
 version = 6.0
 

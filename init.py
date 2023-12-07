@@ -18,7 +18,7 @@ from utils import *
 
 logging.basicConfig(level=logging.INFO)
 
-mypath = ""
+mypath = "/absx"
 os_info = {}
 distro = ""
 version = ""
@@ -87,3 +87,4 @@ if __name__ == "__main__":
     init()
     install.init(mypath, distro, version)
     proxy.init(mypath, distro, version)
+    timer.init(mypath)

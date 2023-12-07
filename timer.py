@@ -4,14 +4,18 @@ from subprocess import run
 from proxy import ln_caddy_cert
 from utils import *
 
-assert exists("crontab")
-
 MAIN_PATH = "/absx"
+
+
+def get_info(s: str):
+    global MAIN_PATH
+    MAIN_PATH = s
 
 
 def add_task(s: str):
     """
     尝试使用脚本添加 cron 任务失败，cronie 不支持
+    因此此函数不使用。
     """
     rc_sudo(f"""(crontab -l 2>/dev/null; echo "{s}") | crontab -""")
 
@@ -26,15 +30,31 @@ def add_task_daily(s: str):
         logging.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
         )
+    except FileNotFoundError:
+        logging.error(
+            "Cannot add task to /etc/cron.daily/init-script because dir does not exist."
+        )
 
 
-def cron_init():
+def cron_init(*args):
+    """
+    input only one parameter, stands for MAIN_PATH
+    """
+    assert exists("crontab")
+    if args:
+        get_info(*args)
     python_exe = (
-        run("which python", shell=True, capture_output=True)
+        run("which python3", shell=True, capture_output=True)
         .stdout.decode("utf-8")
         .strip()
     )
-    assert python_exe
+    if not python_exe:
+        python_exe = (
+            run("which python", shell=True, capture_output=True)
+            .stdout.decode("utf-8")
+            .strip()
+        )
+    assert python_exe, "Python path not found"
     task = f"{python_exe} {os.path.realpath(__file__)}"
     add_task_daily(task)
     logging.info(f"Added daily cron task: `{task}`")
@@ -42,7 +62,7 @@ def cron_init():
 
 if __name__ == "__main__":
     rc(
-        "git pull origin main && git reset --hard origin/main",
+        "git fetch origin main && git reset --hard origin/main",
         cwd=os.path.join(MAIN_PATH, "lxl66566.github.io"),
     )
     ln_caddy_cert(MAIN_PATH)
