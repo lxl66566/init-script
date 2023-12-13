@@ -1,9 +1,13 @@
 import logging
+from pathlib import Path
 from subprocess import run
 
 from info import mypath
+
 from proxy import ln_caddy_cert
 from utils import *
+
+daily = Path("/etc/cron.daily/init-script")
 
 
 def add_task(s: str):
@@ -17,9 +21,8 @@ def add_task(s: str):
 def add_task_daily(s: str):
     # add_task(f"0 0 * * * {s}")
     try:
-        with open("/etc/cron.daily/init-script", "a") as f:
+        with daily.open("a", encoding="utf-8") as f:
             f.write(f"{s}\n")
-        rc_sudo("chmod +x /etc/cron.daily/init-script")
     except PermissionError:
         logging.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
@@ -30,13 +33,8 @@ def add_task_daily(s: str):
         )
 
 
-def cron_init(*args):
-    """
-    input only one parameter, stands for mypath()
-    """
+def init():
     assert exists("crontab")
-    if args:
-        get_info(*args)
     python_exe = (
         run("which python3", shell=True, capture_output=True)
         .stdout.decode("utf-8")
@@ -51,6 +49,8 @@ def cron_init(*args):
     assert python_exe, "Python path not found"
     task = f"{python_exe} {os.path.realpath(__file__)}"
     add_task_daily(task)
+    assert daily.exists(), "write daily cron script failed"
+    daily.chmod(0o755)
     logging.info(f"Added daily cron task: `{task}`")
 
 

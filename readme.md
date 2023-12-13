@@ -6,15 +6,15 @@
 
 **脚本仅支持 ArchLinux, Debian, Ubuntu。**
 
-> 想着适配 yum 系，结果发现要啥没啥，太累了。。我何必受这个罪呢。
+> 想过适配 yum 系，系统也上了，结果发现要啥没啥，太累了。。我何必受这个罪呢。
 
-**脚本未进行多样化测试，使用前请务必了解风险。**
+**使用脚本前请务必了解风险。本人不承担使用之造成的任何后果。**
 
-**本人不承担使用之造成的任何后果。**
-
-目前经过测试的平台有：_Debian 12_
+目前经过测试的平台有：_Debian 12_, _Ubuntu 22.04_
 
 ## 使用
+
+运行脚本需要 root 权限。
 
 ```sh
 curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
@@ -31,3 +31,8 @@ debug 模式（显示详细信息）
 ```sh
 debug=1 curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
 ```
+
+## QA
+
+- 装了 neovim 却不配置？
+  - 插件把服务器搞崩过一次，所以不装插件了。

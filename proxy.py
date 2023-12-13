@@ -20,8 +20,10 @@ PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
 
 domain = ""
 password = []
-cert_abspath = ""
-key_abspath = ""
+cert_crt_ln = Path()
+cert_key_ln = Path()
+wait = 20
+config_path = Path(mypath()) / "init-script" / "config"
 
 
 def init():
@@ -30,19 +32,36 @@ def init():
     assert exists("trojan"), "trojan is not installed"
     assert exists("trojan-go"), "trojan-go is not installed"
     assert exists("systemctl"), "systemctl is not configured"
-    ask()
+    cache()
+    if not domain or not password:
+        ask()
     config_caddy()
     config_hysteria()
     config_trojan()
     config_trojan_go()
 
 
-def ask(**kwargs):
+def cache():
+    global domain, password, wait
+
+    if (Path(mypath()) / ".cache" / ".wait").exists():
+        wait = 1
+
+    with suppress(FileExistsError):
+        (Path(mypath()) / ".cache").mkdir()
+    with suppress(FileNotFoundError):
+        with open(Path(mypath()) / ".cache" / "proxy.json", "r") as f:
+            cache = json.load(f)
+            domain = cache.get("domain")
+            password = cache.get("password")
+
+
+def ask():
     """
     domain: str, password: list[str]
     """
-    global domain, password
-    domain = kwargs.get("domain") or input("domain: ").strip()
+
+    domain = input("domain: ").strip()
 
     def ask_password():
         password = []
@@ -53,15 +72,24 @@ def ask(**kwargs):
                 break
         return password
 
-    password = kwargs.get("password") or ask_password()
+    password = ask_password()
+
+    assert domain and password, "domain and password is empty"
+
+    with open(Path(mypath()) / ".cache" / "proxy.json", "w") as f:
+        json.dump(
+            {"domain": domain, "password": password},
+            f,
+            ensure_ascii=False,
+        )
 
 
 def check_cert():
     """
     检查证书是否存在
     """
-    assert Path(cert_abspath).exists(), f"{cert_abspath} 位置未找到证书"
-    assert Path(key_abspath).exists(), f"{key_abspath} 位置未找到密钥"
+    assert cert_crt_ln.exists(), f"{str(cert_crt_ln.absolute())} 位置未找到证书"
+    assert cert_key_ln.exists(), f"{str(cert_key_ln.absolute())} 位置未找到密钥"
 
 
 def config_caddy():
@@ -73,7 +101,7 @@ def config_caddy():
         cwd=mypath(),
     )
 
-    content = Path("./config/Caddyfile").read_text(encoding="utf-8")
+    content = (config_path / "Caddyfile").read_text(encoding="utf-8")
     content = content.replace("/absx", mypath())
     content = content.replace("jp.absx.online", domain)
 
@@ -82,37 +110,38 @@ def config_caddy():
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     logging.info("caddy 服务成功启动，等待 caddy 获取证书")
-    time.sleep(8)  # 等待 caddy 获取证书
+    time.sleep(wait)  # 等待 caddy 获取证书
 
+    (Path(mypath()) / ".cache" / ".wait").touch(exist_ok=True)
     ln_caddy_cert()
 
 
 def ln_caddy_cert():
-    global cert_abspath, key_abspath
+    global cert_crt_ln, cert_key_ln
 
-    certs_dir = "/var/lib/caddy"
-    cert_files = []
-    for subdir, dirs, files in os.walk(certs_dir):
-        for file in files:
-            if file == f"{domain}.crt" or file == f"{domain}.key":
-                cert_files.append(os.path.join(subdir, file))
-    assert len(cert_files) == 2, "找到了 {} 个证书文件，应该只有 2 个：\n{}".format(
-        len(cert_files),
-        "\n".join(cert_files),
-    )
-    for file in cert_files:
-        filename = file.rstrip("/").split("/")[-1]
-        if filename.endswith(".crt"):
-            cert_abspath = os.path.join(mypath(), filename)
-        elif filename.endswith(".key"):
-            key_abspath = os.path.join(mypath(), filename)
+    certs_dir = Path("/var/lib/caddy")
+    try:
+        cert_crt = next(certs_dir.rglob(domain + ".crt"))
+        cert_key = next(certs_dir.rglob(domain + ".key"))
+    except StopIteration:
+        error_exit("未找到证书，尝试重新生成")
 
-    logging.info("证书文件路径：\n{}".format("\n".join((cert_abspath, key_abspath))))
+    assert cert_crt.exists() and cert_key.exists(), "未找到证书，尝试重新生成"
+    cert_crt_ln = Path(mypath()) / cert_crt.name
+    cert_key_ln = Path(mypath()) / cert_key.name
+    cert_crt_ln.unlink(True)
+    cert_key_ln.unlink(True)
+
     # 这里如果用软连接会出现权限问题，硬链接则需要想办法定期更新。
-    rc_sudo(" ".join(("ln -f", file, mypath())))
-    rc_sudo(" ".join(("chmod 777", cert_abspath)))
-    rc_sudo(" ".join(("chmod 777", key_abspath)))
-
+    cert_crt_ln.hardlink_to(cert_crt)
+    cert_key_ln.hardlink_to(cert_key)
+    logging.info(
+        "证书文件路径：  {}  {}".format(
+            str(cert_crt_ln.absolute()), str(cert_key_ln.absolute())
+        )
+    )
+    cert_crt_ln.chmod(0o777)
+    cert_key_ln.chmod(0o777)
     check_cert()
     logging.info("证书配置完成")
 
@@ -122,12 +151,12 @@ def config_hysteria():
     配置 hysteria
     """
 
-    with open("./config/hysteria.json", "r") as f:
+    with (config_path / "hysteria.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
     config["listen"] = ":" + str(PROXY_PORT["hysteria"])
-    config["tls"]["cert"] = cert_abspath
-    config["tls"]["key"] = key_abspath
+    config["tls"]["cert"] = str(cert_crt_ln.absolute())
+    config["tls"]["key"] = str(cert_key_ln.absolute())
     config["auth"]["password"] = password[0]
 
     with open("/etc/hysteria/hysteria.json", "w") as f:
@@ -155,13 +184,13 @@ def config_trojan():
     """
     配置 trojan
     """
-    with open("./config/trojan.json", "r", encoding="utf-8") as f:
+    with (config_path / "trojan.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan"])  # trojan-go 需要数字值
     config["password"] = password
-    config["ssl"]["cert"] = cert_abspath
-    config["ssl"]["key"] = key_abspath
+    config["ssl"]["cert"] = str(cert_crt_ln.absolute())
+    config["ssl"]["key"] = str(cert_key_ln.absolute())
 
     with open("/etc/trojan/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -181,13 +210,13 @@ def config_trojan_go():
     """
     配置 trojan-go
     """
-    with open("./config/trojan-go.json", "r", encoding="utf-8") as f:
+    with (config_path / "trojan-go.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan-go"])
     config["password"] = password
-    config["ssl"]["cert"] = cert_abspath
-    config["ssl"]["key"] = key_abspath
+    config["ssl"]["cert"] = str(cert_crt_ln.absolute())
+    config["ssl"]["key"] = str(cert_key_ln.absolute())
     config["ssl"]["sni"] = domain
 
     with open("/etc/trojan-go/config.json", "w") as f:
@@ -201,3 +230,13 @@ def config_trojan_go():
     rc_sudo("systemctl enable --now trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
     logging.info("trojan-go 服务启动成功")
+
+
+def show_all_status():
+    def show_one_status(service: str):
+        rc(f"systemctl status {service} --no-pager")
+
+    show_one_status("caddy")
+    show_one_status("hysteria-server@hysteria")
+    show_one_status("trojan-go")
+    show_one_status("trojan")

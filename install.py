@@ -115,15 +115,15 @@ def cargo(*args):
         install_cargo()
 
 
-def config():
+def config_fish():
     if not (Path(mypath()) / "dotfile").exists():
         rc(
             "git clone https://github.com/lxl66566/dotfile.git -b archlinux --depth 1",
             cwd=mypath(),
         )
     dotfile = mypath().rstrip("/") + "/dotfile"
-    rc(f"cp -rf {dotfile}/home/absolutex/.config ~", cwd=mypath())
-    logging.info("copy config dotfile success")
+    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/fish", cwd=mypath())
+    logging.info("copy fish config success")
 
 
 # because AUR has a lot of problems, i decide to install them manually instead of AUR
@@ -184,10 +184,10 @@ def install_trojan_go():
     rc("unzip trojan-go-linux-amd64.zip -d /tmp/trojan-go", cwd="/tmp")
     rc_sudo("install -Dm 755 '/tmp/trojan-go/trojan-go' '/usr/bin/trojan-go'")
     rc_sudo(
-        "install -Dm 644 '/tmp/trojan-go/example/trojan-go.service' '/usr/lib/systemd/system/trojan-go.service'"
+        "install -Dm 644 '/tmp/trojan-go/ezample/trojan-go.service' '/usr/lib/systemd/system/trojan-go.service'"
     )
     rc_sudo(
-        "install -Dm 644 '/tmp/trojan-go/example/trojan-go@.service' '/usr/lib/systemd/system/trojan-go@.service'"
+        "install -Dm 644 '/tmp/trojan-go/ezample/trojan-go@.service' '/usr/lib/systemd/system/trojan-go@.service'"
     )
     rc("mkdir -p /etc/trojan-go")
     logging.info("install trojan-go success")
@@ -224,14 +224,20 @@ def install_fd():
         case "p":
             pacman("fd")
         case "a":
-            assert exists("fish"), "fishshell must been installed"
-            basic_install("fd-find")
-            rc("fish -c 'alias fd fdfind'")
-            # 但是并没有写入。。我也不知道为啥 alias 没生效。
-            # rc("fish -c 'funcsave fd'")
-        case "y":
-            logging.warning("no fd for yum.")
-            return
+            ver = "8.7.1"
+            name = f"fd-v{ver}-x86_64-unknown-linux-musl"
+            rc(
+                f"wget https://github.com/sharkdp/fd/releases/download/v{ver}/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc(
+                f"tar -xvaf /tmp/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc_sudo(f"install -Dm755 '/tmp/{name}/fd' '/usr/bin/fd'")
+            rc_sudo(
+                f"install -Dm644 '/tmp/{name}/autocomplete/fd.fish' '/usr/share/fish/vendor_completions.d/fd.fish'"
+            )
     logging.info("fd success installed")
 
 
@@ -344,16 +350,23 @@ def install_rg():
     logging.info("rg installed")
 
 
-def install_exa():
+def install_eza():
     match pm():
         case "p":
-            pacman("exa")
-        case "a":
-            if distro() == "d" or (distro() == "u" and version() >= 20.10):
-                basic_install("exa")
-            else:
-                cargo("exa")
-    logging.info("exa installed")
+            pacman("eza")
+        case _:
+            name = "eza_x86_64-unknown-linux-musl"
+            rc(
+                f"wget https://github.com/eza-community/eza/releases/latest/download/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc(
+                f"tar -xvaf /tmp/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc_sudo("install -Dm755 /tmp/eza /usr/bin/eza")
+
+    logging.info("eza installed")
 
 
 def install_yazi():
@@ -383,41 +396,73 @@ def install_neovim():
         case "a":
             pacman("neovim")
         case _:
-            nvim_name = "nvim-linux64"
+            name = "nvim-linux64"
             rc(
-                f"wget https://github.com/neovim/neovim/releases/download/stable/{nvim_name}.tar.gz",
+                f"wget https://github.com/neovim/neovim/releases/download/stable/{name}.tar.gz",
                 cwd="/tmp",
             )
             rc(
-                f"tar -xvaf /tmp/{nvim_name}.tar.gz",
+                f"tar -xvaf /tmp/{name}.tar.gz",
                 cwd="/tmp",
             )
-            rc_sudo(f"install -Dm755 '/tmp/{nvim_name}/bin/nvim' '/usr/bin/nvim'")
-            rc_sudo(f"cp -rfu '/tmp/{nvim_name}/lib/nvim' '/usr/lib/'")
-            rc_sudo(f"cp -rfu '/tmp/{nvim_name}/man/man1' '/usr/share/man'")
-            rc_sudo(f"cp -rfu /tmp/{nvim_name}/share /usr")
+            rc_sudo(f"install -Dm755 '/tmp/{name}/bin/nvim' '/usr/bin/nvim'")
+            rc_sudo(
+                """find . -type f -exec install -Dvm755 "{}" "/usr/{}" \;""",
+                cwd=f"/tmp/{name}",
+            )
     logging.info("neovim installed")
+
+
+def install_fastfetch():
+    match pm():
+        case "p":
+            pacman("fastfetch")
+        case _:
+            ver = "2.3.4"
+            name = f"fastfetch-{ver}-Linux"
+            rc(
+                f"wget https://github.com/fastfetch-cli/fastfetch/releases/latest/download/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc(
+                f"tar -xvaf /tmp/{name}.tar.gz",
+                cwd="/tmp",
+            )
+            rc_sudo(
+                """find usr -type f -exec install -Dvm755 "{}" "/{}" \;""",
+                cwd=f"/tmp/{name}",
+            )
+    logging.info("fastfetch installed")
+
+
+others = {
+    "fish": install_fish,
+    "base": install_base,
+    "mcfly": install_mcfly,
+    "starship": install_starship,
+    "eza": install_eza,
+    "my_config_option": config_fish,
+    "cron": install_cron,
+    "caddy": install_caddy,
+    "trojan-go": install_trojan_go,
+    "hysteria": install_hysteria,
+    "fd": install_fd,
+    "sd": install_sd,
+    "rg": install_rg,
+    "yazi": install_yazi,
+    "neovim": install_neovim,
+    "fastfetch": install_fastfetch,
+}
 
 
 def install_all():
     cut()
     logging.info(colored("starting to install ALL", "green"))
-    install_fish()
     basic_install(*my_install_list)
-    install_base()
-    install_mcfly()
-    install_starship()
-    install_exa()
-    config()
-    install_cron()
-    install_caddy()
-    install_trojan_go()
-    install_hysteria()
-    install_fd()
-    install_sd()
-    install_rg()
-    install_yazi()
-    install_neovim()
+
+    for p in others.values():
+        p()
+
     cut()
     logging.info("all packages have been installed")
 
@@ -427,21 +472,6 @@ def install_one(p: str):
         basic_install(p)
         return
     try:
-        {
-            "fish": install_fish,
-            "base": install_base,
-            "mcfly": install_mcfly,
-            "starship": install_starship,
-            "exa": install_exa,
-            "cron": install_cron,
-            "caddy": install_caddy,
-            "trojan-go": install_trojan_go,
-            "hysteria": install_hysteria,
-            "fd": install_fd,
-            "sd": install_sd,
-            "rg": install_rg,
-            "yazi": install_yazi,
-            "neovim": install_neovim,
-        }.get(p)()
+        others.get(p)()
     except TypeError:
         error_exit("脚本未收录此软件")

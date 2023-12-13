@@ -11,6 +11,7 @@ import platform
 import afk
 import install
 import proxy
+import timer
 from utils import *
 
 
@@ -42,9 +43,15 @@ def ask() -> int:
 """
     )
     cut()
+    print(
+        """
+7. 查看代理服务运行情况（前置：4）
+"""
+    )
+    cut()
     while True:
         try:
-            choice = input("输入执行内容：").strip()
+            choice = input("输入执行序号：").strip()
             if not choice:
                 raise KeyboardInterrupt
             return int(choice)
@@ -73,5 +80,7 @@ if __name__ == "__main__":
             timer.init()
         case 6:
             afk.init()
+        case 7:
+            proxy.show_all_status()
         case _:
             error_exit("输入有误。")
