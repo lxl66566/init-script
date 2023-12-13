@@ -18,33 +18,44 @@ error_exit()
     exit 1
 }
 
-get_opsy() {
-    [ -f /etc/redhat-release ] && awk '{print $0}' /etc/redhat-release && return
-    [ -f /etc/os-release ] && awk -F'[= "]' '/PRETTY_NAME/{print $3,$4,$5}' /etc/os-release && return
-    [ -f /etc/lsb-release ] && awk -F'[="]+' '/DESCRIPTION/{print $2}' /etc/lsb-release && return
-}
+default="/absx"
+if [ -z "$mypath" ]; then
+    export mypath=$default
+fi
+if [[ ! $mypath = /* ]]; then
+    printf "环境变量不合格，使用默认安装主目录\n"
+    export mypath=$default
+fi
+printf "安装主目录：$mypath"
 
-NAME=$(get_opsy)
-case "$NAME" in
-    Arch Linux* )
-        yes | pacman -Syu --needed git python || error_exit "安装所需依赖出错"
-    ;;
-    Debian* | Ubuntu* )
-        apt update && apt install git python3 || error_exit "安装所需依赖出错"
-    ;;
-    *)
-        printf "发行版不受支持"
-        exit 1
-    ;;
-esac
+lockfile=$mypath"/.clone_success"    # 避免二次 clone 的问题
+if [ -e lockfile ]; then
+    python3 init.py
+    exit 0
+fi
+
+# 安装所需包
+packages="git python3"
+if command -v pacman &> /dev/null ; then
+    pacman -Syu --noconfirm python git
+elif command -v apt &> /dev/null ; then
+    apt update -y
+    apt install -qy $packages
+elif command -v yum &> /dev/null ; then
+    yum update -y
+    yum install -qy $packages
+elif command -v dnf &> /dev/null ; then
+    dnf update -y
+    dnf install -qy $packages
+fi
+
 
 # 实在不知道要放哪边还不会有权限问题，因此出此下策，放根目录
-
-mypath="/absx"
 
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
 git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
+touch lockfile
 chmod 777 $mypath -R || error_exit "授权失败"
 cd init-script
-python3 init.py $mypath
+python3 init.py

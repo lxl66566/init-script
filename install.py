@@ -2,17 +2,15 @@ import logging
 from pathlib import Path
 from subprocess import run
 
+from info import *
 from utils import *
-
-mypath = "/absx"
-distro = ""
-version = 6.0
 
 # 多发行版通用的安装列表
 my_install_list = [
     "sudo",
     "wget",
     "curl",
+    "rsync",
     "make",
     "btop",
     "lsof",
@@ -26,27 +24,19 @@ my_install_list = [
 ]
 
 
-def get_info(main_path, distro_name, version_name):
-    global mypath, distro, version
-    mypath = main_path
-    distro = distro_name
-    version = float(version_name)
-
-
-def init(*args):
-    get_info(*args)
-    match distro:
-        case "a":
+def init():
+    match pm():
+        case "p":
             assert exists("pacman")
             rc_sudo("pacman -Syu --noconfirm")
             rc_sudo("pacman -S --noconfirm archlinux-keyring")
             rc_sudo("pacman -S --needed --noconfirm base-devel")
-        case "d" | "u":
+        case "a":
             assert exists("apt")
             assert is_root(), "You need to be root to install packages."
             rc_sudo("apt update -y")
             rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
-            if version <= 11:
+            if distro() == "d" and version() <= 11:
                 rc(
                     "echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list"
                 )
@@ -59,10 +49,24 @@ def init(*args):
                 rc("apt-get update -y")
                 rc("apt upgrade -y")
                 rc("apt-get -y -t buster-backports install libseccomp2")
+        case "y":
+            assert exists("yum"), "yum is not installed"
+            assert is_root(), "You need to be root to install packages."
+            rc_sudo("yum update -y")
+
     logging.info("init success")
-    cut()
     logging.info("starting to install all")
     install_all()
+
+
+def y_or_qy() -> str:
+    """
+    do you need quit mode?
+    """
+    if debug_mode():
+        return "-y"
+    else:
+        return "-qy"
 
 
 def pacman(*args):
@@ -75,7 +79,37 @@ def paru(*args):
 
 
 def apt(*args):
-    rc_sudo(" ".join(("apt", "install", "-y", *args)))
+    rc_sudo(" ".join(("apt", "install", y_or_qy(), *args)))
+
+
+def day(*args):
+    """
+    dnf + apt + yum 3 in 1
+    """
+    rc_sudo(
+        " ".join(
+            (
+                {"a": "apt", "y": "yum", "d": "dnf"}.get(pm()),
+                "install",
+                y_or_qy(),
+                *args,
+            )
+        )
+    )
+
+
+def basic_install(*args):
+    """
+    basically install any packages by pm
+    """
+    cut()
+    logging.info("开始安装：" + " ".join(args))
+    match pm():
+        case "p":
+            pacman(*args)
+        case _:
+            day(*args)
+    logging.info("安装完成：" + " ".join(args))
 
 
 def cargo(*args):
@@ -85,29 +119,20 @@ def cargo(*args):
         install_cargo()
 
 
-def install_mylist(l: list[str]):
-    match distro:
-        case "a":
-            pacman(*l)
-        case "d" | "u":
-            apt(*l)
-    logging.info("install mylist success: {}".format(" ".join(l)))
-
-
 def config():
-    if not (Path(mypath) / "dotfile").exists():
+    if not (Path(mypath()) / "dotfile").exists():
         rc(
             "git clone https://github.com/lxl66566/dotfile.git -b archlinux --depth 1",
-            cwd=mypath,
+            cwd=mypath(),
         )
-    dotfile = mypath.rstrip("/") + "/dotfile"
-    rc(f"cp -rf {dotfile}/home/absolutex/.config ~", cwd=mypath)
+    dotfile = mypath().rstrip("/") + "/dotfile"
+    rc(f"cp -rf {dotfile}/home/absolutex/.config ~", cwd=mypath())
     logging.info("copy config dotfile success")
 
 
 # because AUR has a lot of problems, i decide to install them manually instead of AUR
 def install_paru():
-    assert distro == "a", "Only support Arch Linux"
+    assert distro() == "a", "Only support Arch Linux"
     assert not is_root(), "installing paru must not be root"
     assert exists("git"), "Git not found"
     assert exists("makepkg"), "Makepkg not found"
@@ -123,25 +148,35 @@ def install_paru():
 
 
 def install_cron():
-    match distro:
-        case "a":
+    match pm():
+        case "p":
             pacman("cronie")
             rc_sudo("systemctl enable --now cronie")
-        case "d" | "u":
-            apt("cron")
-            rc("systemctl enable --now cron")
-    logging.info("install cron success")
+        case _:
+            day("cron")
+            rc_sudo("systemctl enable --now cron")
 
 
 def install_base():
     """
     为了之后的 nvim 插件做准备，300MB，不想装可以不用
     """
-    match distro:
-        case "a":
+    match pm():
+        case "p":
             pacman("base-devel")
-        case "d" | "u":
+        case "a":
             apt("build-essential")
+        case "y":
+            rc_sudo(
+                " ".join(
+                    (
+                        "yum",
+                        "groupinstall",
+                        "'Development Tools'",
+                        y_or_qy(),
+                    )
+                )
+            )
 
 
 def install_trojan_go():
@@ -163,10 +198,10 @@ def install_trojan_go():
 
 
 def install_caddy():
-    match distro:
-        case "a":
+    match pm():
+        case "p":
             pacman("caddy")
-        case _:
+        case "a":
             apt("debian-keyring", "debian-archive-keyring", "apt-transport-https")
             rc(
                 "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
@@ -174,8 +209,12 @@ def install_caddy():
             rc(
                 "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list"
             )
-            rc("apt update")
+            rc_sudo("apt update")
             apt("caddy")
+        case "y":
+            day("yum-plugin-copr")
+            rc_sudo("yum copr enable @caddy/caddy")
+            day("caddy")
     logging.info("install caddy success")
 
 
@@ -185,20 +224,23 @@ def install_hysteria():
 
 
 def install_fd():
-    match distro:
-        case "a":
+    match pm():
+        case "p":
             pacman("fd")
-        case "d" | "u":
+        case "a":
             assert exists("fish"), "fishshell must been installed"
-            apt("fd-find")
+            day("fd-find")
             rc("fish -c 'alias fd fdfind'")
             # 但是并没有写入。。我也不知道为啥 alias 没生效。
             # rc("fish -c 'funcsave fd'")
+        case "y":
+            logging.warning("no fd for yum.")
+            return
     logging.info("fd success installed")
 
 
 def install_mcfly():
-    match distro:
+    match distro():
         case "a":
             pacman("mcfly")
         case _:
@@ -209,25 +251,25 @@ def install_mcfly():
 
 
 def install_zoxide():
-    match distro:
+    match distro():
         case "a":
             pacman("zoxide")
         case _:
-            if version < 11:
+            if distro() == "d" and version() < 11:
                 rc_sudo(
                     "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
                 )
             else:
-                apt("zoxide")
+                day("zoxide")
     logging.info("install zoxide success")
 
 
 def install_fish():
-    match distro:
+    match distro():
         case "a":
             pacman("fish")
         case "d":
-            if version < 11:
+            if version() < 11:
                 url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
                 package_name = rc(
                     f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
@@ -245,10 +287,10 @@ def install_fish():
 
 
 def install_starship():
-    match distro:
+    match distro():
         case "a":
             pacman("starship")
-        case "d" | "u":
+        case _:
             rc_sudo("curl -sS https://starship.rs/install.sh | sh -s -- -y")
     logging.info("starship installed")
 
@@ -257,7 +299,7 @@ def install_starship():
 def install_cargo():
     if exists("cargo"):
         return
-    match distro:
+    match distro():
         case "a":
             pacman("cargo")
         case _:
@@ -268,11 +310,11 @@ def install_cargo():
 def install_sd():
     sd_version = "1.0.0"
     sd_name = f"sd-v{sd_version}-x86_64-unknown-linux-musl"
-    match distro:
+    match distro():
         case "a":
             pacman("sd")
         case "d":
-            if version < 13:
+            if version() < 13:
                 rc(
                     f"wget https://github.com/chmln/sd/releases/download/v{sd_version}/{sd_name}.tar.gz",
                     cwd="/tmp",
@@ -293,11 +335,13 @@ def install_sd():
 
 
 def install_rg():
-    match distro:
+    match distro():
         case "a":
             pacman("ripgrep")
         case "d" | "u":
-            if (distro == "d" and version < 12) or (distro == "u" and version < 18.10):
+            if (distro() == "d" and version() < 12) or (
+                distro() == "u" and version() < 18.10
+            ):
                 rc(
                     "wget https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb",
                     cwd="/tmp",
@@ -309,11 +353,11 @@ def install_rg():
 
 
 def install_exa():
-    match distro:
+    match distro():
         case "a":
             pacman("exa")
         case _:
-            if distro == "d" or (distro == "u" and version >= 20.10):
+            if distro() == "d" or (distro() == "u" and version() >= 20.10):
                 apt("exa")
             else:
                 cargo("exa")
@@ -321,7 +365,7 @@ def install_exa():
 
 
 def install_yazi():
-    match distro:
+    match distro():
         case "a":
             pacman("yazi", "ffmpegthumbnailer", "unarchiver", "jq", "poppler")
         case _:
@@ -343,7 +387,7 @@ def install_yazi():
 
 
 def install_neovim():
-    match distro:
+    match distro():
         case "a":
             pacman("neovim")
         case _:
@@ -365,7 +409,7 @@ def install_neovim():
 
 def install_all():
     install_fish()
-    install_mylist(my_install_list)
+    basic_install(*my_install_list)
     install_base()
     install_mcfly()
     install_starship()
@@ -381,3 +425,25 @@ def install_all():
     install_yazi()
     install_neovim()
     logging.info("all packages have installed")
+
+
+def install_one(p: str):
+    if p in my_install_list:
+        basic_install(p)
+        return
+    {
+        "fish": install_fish,
+        "base": install_base,
+        "mcfly": install_mcfly,
+        "starship": install_starship,
+        "exa": install_exa,
+        "cron": install_cron,
+        "caddy": install_caddy,
+        "trojan-go": install_trojan_go,
+        "hysteria": install_hysteria,
+        "fd": install_fd,
+        "sd": install_sd,
+        "rg": install_rg,
+        "yazi": install_yazi,
+        "neovim": install_neovim,
+    }.get(p)()

@@ -1,15 +1,9 @@
 import logging
 from subprocess import run
 
+from info import mypath
 from proxy import ln_caddy_cert
 from utils import *
-
-MAIN_PATH = "/absx"
-
-
-def get_info(s: str):
-    global MAIN_PATH
-    MAIN_PATH = s
 
 
 def add_task(s: str):
@@ -38,7 +32,7 @@ def add_task_daily(s: str):
 
 def cron_init(*args):
     """
-    input only one parameter, stands for MAIN_PATH
+    input only one parameter, stands for mypath()
     """
     assert exists("crontab")
     if args:
@@ -63,6 +57,6 @@ def cron_init(*args):
 if __name__ == "__main__":
     rc(
         "git fetch origin main && git reset --hard origin/main",
-        cwd=os.path.join(MAIN_PATH, "lxl66566.github.io"),
+        cwd=os.path.join(mypath(), "lxl66566.github.io"),
     )
-    ln_caddy_cert(MAIN_PATH)
+    ln_caddy_cert()

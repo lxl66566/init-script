@@ -12,79 +12,65 @@ import sys
 from contextlib import suppress
 from subprocess import run
 
+import afk
 import install
 import proxy
 from utils import *
 
 logging.basicConfig(level=logging.INFO)
 
-mypath = "/absx"
-os_info = {}
-distro = ""
-version = ""
-
-
-def info():
-    def read_os_info(f):
-        """f is an opened file"""
-        global os_info
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            key, separator, value = line and line.partition("=")
-            if key and separator and value:
-                os_info[key.strip()] = value.strip().strip('"')
-
-    global distro, version, os_info
-    files = ("/etc/os-release", "/etc/redhat-release", "/etc/lsb-release")
-    for file in files:
-        with suppress(FileNotFoundError):
-            with open(file, "r") as f:
-                read_os_info(f)
-    assert os_info, "Could not detect OS info."
-    if os_info.get("NAME").startswith("Arch"):
-        distro = "a"
-        version = 0
-    elif os_info.get("NAME").startswith("Debian"):
-        distro = "d"
-        version = os_info.get("VERSION_ID")
-    elif os_info.get("NAME").startswith("Ubuntu"):
-        distro = "u"
-        version = os_info.get("VERSION_ID")
-    else:
-        logging.error(
-            f"""found NAME: {os_info.get("NAME")}, version: {os_info.get("VERSION_ID")}"""
-        )
-        error_exit("Unsupported OS.")
-    logging.info(f"OS detected success. distro: {distro}, version: {version}")
-
-
-def system_check():
-    if os.name != "posix" or platform.system() != "Linux":
-        error_exit("This script is only for Linux.")
-
-    global mypath
-    try:
-        mypath = sys.argv[1].strip()
-    except IndexError:
-        error_exit("Usage: init-script <path>")
-    logging.info(f"Path detected success. path: {mypath}")
-
 
 def init():
     cut()
     print("""init-script by https://github.com/lxl66566/init-script""")
-    cut()
 
-    system_check()
-    info()
-    rc_sudo(f"chmod 777 {mypath} -R")
-    logging.info("init success. next: install")
+    if os.name != "posix" or platform.system() != "Linux":
+        error_exit("This script is only for Linux.")
+
+
+def ask() -> int:
+    cut()
+    print(
+        """
+1. ALL (2 + 4 + 5)
+2. 安装所有推荐软件包
+3. 安装软件包（手动）
+4. 部署代理（前置：2）
+5. 部署定时任务（前置：4）
+6. 一键挂机（本人的挂机脚本）
+"""
+    )
+    cut()
+    while True:
+        try:
+            choice = input("输入执行内容：").strip()
+            if not choice:
+                raise KeyboardInterrupt
+            return int(choice)
+        except KeyboardInterrupt:
+            error_exit("程序终止。")
+        except ValueError:
+            print(colored("输入有误，请重新输入", "red"))
 
 
 if __name__ == "__main__":
     init()
-    install.init(mypath, distro, version)
-    proxy.init(mypath, distro, version)
-    timer.init(mypath)
+    match ask():
+        case 1:
+            install.init()
+            proxy.init()
+            timer.init()
+            afk.init()
+        case 2:
+            install.init()
+        case 3:
+            temp = input("请输入安装软件名：").strip()
+            install.install_one(temp)
+        case 4:
+            proxy.init()
+        case 5:
+            timer.init()
+        case 6:
+            afk.init()
+        case _:
+            error_exit("输入有误。")
