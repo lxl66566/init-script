@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from subprocess import run
 
-from info import *
 from utils import *
 
 # 多发行版通用的安装列表
@@ -55,7 +54,6 @@ def init():
             rc_sudo("yum update -y")
 
     logging.info("init success")
-    logging.info("starting to install all")
     install_all()
 
 
@@ -78,10 +76,6 @@ def paru(*args):
     rc(" ".join(("yes | paru -S --needed", *args)))
 
 
-def apt(*args):
-    rc_sudo(" ".join(("apt", "install", y_or_qy(), *args)))
-
-
 def day(*args):
     """
     dnf + apt + yum 3 in 1
@@ -89,6 +83,8 @@ def day(*args):
     rc_sudo(
         " ".join(
             (
+                "NEEDRESTART_MODE=a",  # for ubuntu
+                "DEBIAN_FRONTEND=noninteractive",  # for debian
                 {"a": "apt", "y": "yum", "d": "dnf"}.get(pm()),
                 "install",
                 y_or_qy(),
@@ -153,7 +149,7 @@ def install_cron():
             pacman("cronie")
             rc_sudo("systemctl enable --now cronie")
         case _:
-            day("cron")
+            basic_install("cron")
             rc_sudo("systemctl enable --now cron")
 
 
@@ -165,7 +161,7 @@ def install_base():
         case "p":
             pacman("base-devel")
         case "a":
-            apt("build-essential")
+            day("build-essential")
         case "y":
             rc_sudo(
                 " ".join(
@@ -202,7 +198,7 @@ def install_caddy():
         case "p":
             pacman("caddy")
         case "a":
-            apt("debian-keyring", "debian-archive-keyring", "apt-transport-https")
+            day("debian-keyring", "debian-archive-keyring", "apt-transport-https")
             rc(
                 "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
             )
@@ -210,11 +206,11 @@ def install_caddy():
                 "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list"
             )
             rc_sudo("apt update")
-            apt("caddy")
+            basic_install("caddy")
         case "y":
             day("yum-plugin-copr")
             rc_sudo("yum copr enable @caddy/caddy")
-            day("caddy")
+            basic_install("caddy")
     logging.info("install caddy success")
 
 
@@ -229,7 +225,7 @@ def install_fd():
             pacman("fd")
         case "a":
             assert exists("fish"), "fishshell must been installed"
-            day("fd-find")
+            basic_install("fd-find")
             rc("fish -c 'alias fd fdfind'")
             # 但是并没有写入。。我也不知道为啥 alias 没生效。
             # rc("fish -c 'funcsave fd'")
@@ -260,16 +256,16 @@ def install_zoxide():
                     "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
                 )
             else:
-                day("zoxide")
+                basic_install("zoxide")
     logging.info("install zoxide success")
 
 
 def install_fish():
-    match distro():
-        case "a":
+    match pm():
+        case "p":
             pacman("fish")
-        case "d":
-            if version() < 11:
+        case "a":
+            if distro() == "d" and version() < 11:
                 url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
                 package_name = rc(
                     f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
@@ -279,9 +275,7 @@ def install_fish():
                 rc(f"wget {url}{package_name}", cwd="/tmp")
                 rc_sudo("dpkg -i " + package_name, cwd="/tmp")
             else:
-                apt("fish")
-        case "u":
-            apt("fish")
+                basic_install("fish")
     rc_sudo("chsh -s /usr/bin/fish")
     logging.info("fish installed")
 
@@ -295,26 +289,26 @@ def install_starship():
     logging.info("starship installed")
 
 
-# 不要上当！！！这不是 cargo 的安装！
 def install_cargo():
     if exists("cargo"):
         return
-    match distro():
-        case "a":
-            pacman("cargo")
-        case _:
-            rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
+    basic_install("cargo")
+    # match distro():
+    #     case "a":
+    #         pacman("cargo")
+    #     case _:
+    #         rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
     logging.info("cargo installed")
 
 
 def install_sd():
     sd_version = "1.0.0"
     sd_name = f"sd-v{sd_version}-x86_64-unknown-linux-musl"
-    match distro():
-        case "a":
+    match pm():
+        case "p":
             pacman("sd")
-        case "d":
-            if version() < 13:
+        case "a":
+            if (distro() == "d" and version() < 13) or distro() == "u":
                 rc(
                     f"wget https://github.com/chmln/sd/releases/download/v{sd_version}/{sd_name}.tar.gz",
                     cwd="/tmp",
@@ -328,17 +322,15 @@ def install_sd():
                     f"install -Dm644 '/tmp/{sd_name}/completions/sd.fish' '/usr/share/fish/vendor_completions.d/sd.fish'"
                 )
             else:
-                apt("rust-sd")
-        case "u":
-            apt("rust-sd")
+                basic_install("rust-sd")
     logging.info("sd installed")
 
 
 def install_rg():
-    match distro():
-        case "a":
+    match pm():
+        case "p":
             pacman("ripgrep")
-        case "d" | "u":
+        case "a":
             if (distro() == "d" and version() < 12) or (
                 distro() == "u" and version() < 18.10
             ):
@@ -348,17 +340,17 @@ def install_rg():
                 )
                 rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
             else:
-                apt("ripgrep")
+                basic_install("ripgrep")
     logging.info("rg installed")
 
 
 def install_exa():
-    match distro():
-        case "a":
+    match pm():
+        case "p":
             pacman("exa")
-        case _:
+        case "a":
             if distro() == "d" or (distro() == "u" and version() >= 20.10):
-                apt("exa")
+                basic_install("exa")
             else:
                 cargo("exa")
     logging.info("exa installed")
@@ -408,6 +400,8 @@ def install_neovim():
 
 
 def install_all():
+    cut()
+    logging.info(colored("starting to install ALL", "green"))
     install_fish()
     basic_install(*my_install_list)
     install_base()
@@ -424,26 +418,30 @@ def install_all():
     install_rg()
     install_yazi()
     install_neovim()
-    logging.info("all packages have installed")
+    cut()
+    logging.info("all packages have been installed")
 
 
 def install_one(p: str):
     if p in my_install_list:
         basic_install(p)
         return
-    {
-        "fish": install_fish,
-        "base": install_base,
-        "mcfly": install_mcfly,
-        "starship": install_starship,
-        "exa": install_exa,
-        "cron": install_cron,
-        "caddy": install_caddy,
-        "trojan-go": install_trojan_go,
-        "hysteria": install_hysteria,
-        "fd": install_fd,
-        "sd": install_sd,
-        "rg": install_rg,
-        "yazi": install_yazi,
-        "neovim": install_neovim,
-    }.get(p)()
+    try:
+        {
+            "fish": install_fish,
+            "base": install_base,
+            "mcfly": install_mcfly,
+            "starship": install_starship,
+            "exa": install_exa,
+            "cron": install_cron,
+            "caddy": install_caddy,
+            "trojan-go": install_trojan_go,
+            "hysteria": install_hysteria,
+            "fd": install_fd,
+            "sd": install_sd,
+            "rg": install_rg,
+            "yazi": install_yazi,
+            "neovim": install_neovim,
+        }.get(p)()
+    except TypeError:
+        error_exit("脚本未收录此软件")

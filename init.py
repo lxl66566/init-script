@@ -4,20 +4,14 @@
 #
 # https://github.com/lxl66566/init-script
 
-import json
 import logging
 import os
 import platform
-import sys
-from contextlib import suppress
-from subprocess import run
 
 import afk
 import install
 import proxy
 from utils import *
-
-logging.basicConfig(level=logging.INFO)
 
 
 def init():
@@ -26,6 +20,13 @@ def init():
 
     if os.name != "posix" or platform.system() != "Linux":
         error_exit("This script is only for Linux.")
+
+    logging.basicConfig(level=logging.DEBUG if debug_mode() else logging.INFO)
+
+    cut()
+    print(
+        f"运行环境：distro: {distro()}, pm: {pm()}, debug mode: {True if debug_mode() else False}"
+    )
 
 
 def ask() -> int:

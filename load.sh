@@ -26,10 +26,10 @@ if [[ ! $mypath = /* ]]; then
     printf "环境变量不合格，使用默认安装主目录\n"
     export mypath=$default
 fi
-printf "安装主目录：$mypath"
+printf "安装主目录：$mypath\n"
 
-lockfile=$mypath"/.clone_success"    # 避免二次 clone 的问题
-if [ -e lockfile ]; then
+lockfile=$mypath"/.lock_for_load"    # 避免二次 clone 的问题
+if [ -e $lockfile ]; then
     python3 init.py
     exit 0
 fi
@@ -55,7 +55,7 @@ fi
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
 git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
-touch lockfile
+touch $lockfile
 chmod 777 $mypath -R || error_exit "授权失败"
 cd init-script
 python3 init.py

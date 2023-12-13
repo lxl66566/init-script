@@ -14,7 +14,6 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from info import *
 from utils import *
 
 PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
