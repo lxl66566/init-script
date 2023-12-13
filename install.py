@@ -175,6 +175,32 @@ def install_base():
             )
 
 
+def install_python_requests():
+    match pm():
+        case "p":
+            basic_install("python-requests")
+        case _:
+            basic_install("python3-requests")
+
+
+def install_gh_release(s: str):
+    # TODO: complete this
+    from mypy import *
+
+    response = requests.get(
+        "https://api.github.com/repos/eza-community/eza/releases/latest"
+    )
+    n = lambda s: s.rpartition("/")[-1].lower()
+    dl_links = mylist(
+        [i.get("browser_download_url") for i in response.json().get("assets")]
+    )
+    temp = (
+        dl_links.filter(lambda x: "linux" in n(x))
+        .filter(lambda x: "x86_64" in n(x) or "amd64" in n(x))
+        .sort_by(lambda x, y: "musl" in n(x) and "musl" not in n(y))
+    )
+
+
 def install_trojan_go():
     assert exists("unzip"), "unzip not found"
     rc(
