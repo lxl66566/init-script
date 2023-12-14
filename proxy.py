@@ -6,10 +6,11 @@
 #
 # PLEASE RUN AS ROOT, YOU ARE AWARE OF THE RISKS INVOLVED AND CONTINUE.
 
+# ruff: noqa: F403, F405
+
 import json
 import logging
 import os
-import subprocess
 import time
 from contextlib import suppress
 from pathlib import Path

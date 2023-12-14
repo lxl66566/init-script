@@ -126,7 +126,7 @@ def distro():
             return "al"
         case _:
             logging.error(
-                f"""found NAME: {os_info.get("NAME")}, version: {os_info.get("VERSION_ID")}"""
+                f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
             )
             error_exit("Unsupported OS.")
 

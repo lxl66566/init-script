@@ -1,7 +1,6 @@
+# ruff: noqa: F403, F405
+
 import json
-import subprocess
-from contextlib import suppress
-from pathlib import Path
 
 from utils import rc
 

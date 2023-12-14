@@ -1,7 +1,12 @@
-import logging
-from pathlib import Path
-from subprocess import run
+# ruff: noqa: F403, F405
 
+import logging
+from copy import copy
+from functools import lru_cache
+from itertools import chain
+from pathlib import Path
+
+from ufcs import UFCS
 from utils import *
 
 # 多发行版通用的安装列表
@@ -10,6 +15,7 @@ my_install_list = [
     "wget",
     "curl",
     "rsync",
+    "unzip",
     "make",
     "btop",
     "lsof",
@@ -19,7 +25,6 @@ my_install_list = [
     "tldr",
     "trojan",
     "podman",
-    "unzip",
 ]
 
 
@@ -183,38 +188,96 @@ def install_python_requests():
             basic_install("python3-requests")
 
 
-def install_gh_release(s: str):
-    # TODO: complete this
-    from mypy import *
+def install_from_file(p: Path, bin_name: str = ""):
+    """
+    :param all: 代表将 p 下的所有文件全部安装到
+    """
+    if isinstance(p, str):
+        p = Path(p)
+    for i in chain(p.rglob(bin_name), p.rglob("*.fish"), p.rglob("*.service")):
+        assert i.is_file(), "found something is not a file"
+        match i.suffix:
+            case "":
+                rc_sudo(f"install -Dm755 {str(i.absolute())} /usr/bin/{i.name}")
+            case ".fish":
+                rc_sudo(
+                    f"install -Dm644 {str(i.absolute())} /usr/share/fish/vendor_completions.d/{i.name}"
+                )
+            case ".service":
+                rc_sudo(
+                    f"install -Dm644 {str(i.absolute())} /usr/lib/systemd/system/{i.name}"
+                )
+        logging.info(f"installed {i.name}")
 
-    response = requests.get(
-        "https://api.github.com/repos/eza-community/eza/releases/latest"
+
+def install_from_dir_all(p: Path, to_: Path):
+    """
+    install all files from this dir to another dir
+    """
+    if isinstance(p, str):
+        p = Path(p)
+    if isinstance(to_, str):
+        to_ = Path(to_)
+    if not to_.is_dir():
+        error_exit(f"{to_} is not a existing directory")
+    for i in p.rglob("*"):
+        if not i.is_file():
+            continue
+        dest_path = to_ / i.relative_to(p)
+        rc_sudo(f"install -Dm755 {str(i.absolute())} {str(dest_path)}")
+        logging.info(f"installed {i.name} to {str(dest_path)}")
+
+
+def install_gh_release(s: str, bin_name: str = "", package_name: str = ""):
+    """
+    install newest package from github release
+    :param s: `<author>/<repo>`, like `eza-community/eza`
+    :param bin_name: the binary file in this release, like `eza`. use the `<repo>` name default.
+    :param package_name: if cannot automatically find the correct package in the release, you may need to specify that.
+    """
+    import requests
+
+    @lru_cache
+    def n(s):
+        return s.rpartition("/")[-1]
+
+    response = requests.get(f"https://api.github.com/repos/{s}/releases/latest")
+    dl_links = (
+        UFCS([i for i in response.json().get("assets")])
+        .filter(lambda x: x.get("size") > 100)
+        .map(lambda x: x.get("browser_download_url"))
     )
-    n = lambda s: s.rpartition("/")[-1].lower()
-    dl_links = mylist(
-        [i.get("browser_download_url") for i in response.json().get("assets")]
+    assert list(dl_links), "no release found"
+    bin_name = bin_name or n(s)
+
+    url = (
+        dl_links.filter(lambda x: "linux" in n(x).lower())
+        .sorted(key=lambda x: "musl" not in n(x))
+        .sorted(key=lambda x: n(x).endswith("tar.gz"))  # 优先使用 musl，zip
+        .sorted(key=lambda x: "x86_64" not in n(x) and "amd64" not in n(x).lower())
+        .list()
     )
-    temp = (
-        dl_links.filter(lambda x: "linux" in n(x))
-        .filter(lambda x: "x86_64" in n(x) or "amd64" in n(x))
-        .sort_by(lambda x, y: "musl" in n(x) and "musl" not in n(y))
-    )
+    if not url and not package_name:
+        url = UFCS(dl_links).filter(lambda x: package_name in n(x)).list()
+    assert url, "no release found"
+    url = url[0]
+
+    rc("wget " + url, cwd="/tmp")
+    if url.rstrip("/").endswith(".zip"):
+        p = Path("/tmp") / n(url).rstrip(".zip")
+        assert exists("unzip"), "unzip not found"
+        rc(f"unzip {n(url)} -d {str(p.absolute())}", cwd="/tmp")
+    elif url.rstrip("/").endswith(".tar.gz"):
+        p = Path("/tmp") / n(url).rstrip(".tar.gz")
+        rc(f"tar -xvaf {n(url)} --one-top-level", cwd="/tmp")
+    else:
+        error_exit(f"{n(url)} cannot successfully extracted")
+
+    return p
 
 
 def install_trojan_go():
-    assert exists("unzip"), "unzip not found"
-    rc(
-        "wget https://github.com/p4gefau1t/trojan-go/releases/latest/download/trojan-go-linux-amd64.zip",
-        cwd="/tmp",
-    )
-    rc("unzip trojan-go-linux-amd64.zip -d /tmp/trojan-go", cwd="/tmp")
-    rc_sudo("install -Dm 755 '/tmp/trojan-go/trojan-go' '/usr/bin/trojan-go'")
-    rc_sudo(
-        "install -Dm 644 '/tmp/trojan-go/ezample/trojan-go.service' '/usr/lib/systemd/system/trojan-go.service'"
-    )
-    rc_sudo(
-        "install -Dm 644 '/tmp/trojan-go/ezample/trojan-go@.service' '/usr/lib/systemd/system/trojan-go@.service'"
-    )
+    install_from_file(install_gh_release("p4gefau1t/trojan-go"))
     rc("mkdir -p /etc/trojan-go")
     logging.info("install trojan-go success")
 
@@ -250,20 +313,7 @@ def install_fd():
         case "p":
             pacman("fd")
         case "a":
-            ver = "8.7.1"
-            name = f"fd-v{ver}-x86_64-unknown-linux-musl"
-            rc(
-                f"wget https://github.com/sharkdp/fd/releases/download/v{ver}/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc(
-                f"tar -xvaf /tmp/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc_sudo(f"install -Dm755 '/tmp/{name}/fd' '/usr/bin/fd'")
-            rc_sudo(
-                f"install -Dm644 '/tmp/{name}/autocomplete/fd.fish' '/usr/share/fish/vendor_completions.d/fd.fish'"
-            )
+            install_from_file(install_gh_release("sharkdp/fd"))
     logging.info("fd success installed")
 
 
@@ -334,25 +384,12 @@ def install_cargo():
 
 
 def install_sd():
-    sd_version = "1.0.0"
-    sd_name = f"sd-v{sd_version}-x86_64-unknown-linux-musl"
     match pm():
         case "p":
             pacman("sd")
         case "a":
             if (distro() == "d" and version() < 13) or distro() == "u":
-                rc(
-                    f"wget https://github.com/chmln/sd/releases/download/v{sd_version}/{sd_name}.tar.gz",
-                    cwd="/tmp",
-                )
-                rc(
-                    f"tar -xvaf /tmp/{sd_name}.tar.gz",
-                    cwd="/tmp",
-                )
-                rc_sudo(f"install -Dm755 '/tmp/{sd_name}/sd' '/usr/bin/sd'")
-                rc_sudo(
-                    f"install -Dm644 '/tmp/{sd_name}/completions/sd.fish' '/usr/share/fish/vendor_completions.d/sd.fish'"
-                )
+                install_from_file(install_gh_release("chmln/sd"))
             else:
                 basic_install("rust-sd")
     logging.info("sd installed")
@@ -381,17 +418,7 @@ def install_eza():
         case "p":
             pacman("eza")
         case _:
-            name = "eza_x86_64-unknown-linux-musl"
-            rc(
-                f"wget https://github.com/eza-community/eza/releases/latest/download/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc(
-                f"tar -xvaf /tmp/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc_sudo("install -Dm755 /tmp/eza /usr/bin/eza")
-
+            install_from_file(install_gh_release("eza-community/eza"))
     logging.info("eza installed")
 
 
@@ -422,19 +449,8 @@ def install_neovim():
         case "a":
             pacman("neovim")
         case _:
-            name = "nvim-linux64"
-            rc(
-                f"wget https://github.com/neovim/neovim/releases/download/stable/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc(
-                f"tar -xvaf /tmp/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc_sudo(f"install -Dm755 '/tmp/{name}/bin/nvim' '/usr/bin/nvim'")
-            rc_sudo(
-                """find . -type f -exec install -Dvm755 "{}" "/usr/{}" \;""",
-                cwd=f"/tmp/{name}",
+            install_from_dir_all(
+                install_gh_release("neovim/neovim", "nvim-linux64"), "/usr"
             )
     logging.info("neovim installed")
 
@@ -444,24 +460,12 @@ def install_fastfetch():
         case "p":
             pacman("fastfetch")
         case _:
-            ver = "2.3.4"
-            name = f"fastfetch-{ver}-Linux"
-            rc(
-                f"wget https://github.com/fastfetch-cli/fastfetch/releases/latest/download/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc(
-                f"tar -xvaf /tmp/{name}.tar.gz",
-                cwd="/tmp",
-            )
-            rc_sudo(
-                """find usr -type f -exec install -Dvm755 "{}" "/{}" \;""",
-                cwd=f"/tmp/{name}",
-            )
+            install_from_file(install_gh_release("fastfetch-cli/fastfetch"))
     logging.info("fastfetch installed")
 
 
 others = {
+    "python_requests": install_python_requests,
     "fish": install_fish,
     "base": install_base,
     "mcfly": install_mcfly,
@@ -493,6 +497,13 @@ def install_all():
     logging.info("all packages have been installed")
 
 
+def show_all_available_packages():
+    print("可用软件包：")
+    temp = copy(my_install_list)
+    temp.extend(others.keys())
+    UFCS(temp).filter(lambda x: x != "my_config_option").print()
+
+
 def install_one(p: str):
     if p in my_install_list:
         basic_install(p)
@@ -501,3 +512,5 @@ def install_one(p: str):
         others.get(p)()
     except TypeError:
         error_exit("脚本未收录此软件")
+    except KeyboardInterrupt:
+        error_exit("退出脚本")

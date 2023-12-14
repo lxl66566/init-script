@@ -4,6 +4,8 @@
 #
 # https://github.com/lxl66566/init-script
 
+# ruff: noqa: F403, F405
+
 import logging
 import os
 import platform
@@ -72,6 +74,7 @@ if __name__ == "__main__":
         case 2:
             install.init()
         case 3:
+            install.show_all_available_packages()
             temp = input("请输入安装软件名：").strip()
             install.install_one(temp)
         case 4:
