@@ -26,6 +26,7 @@ my_install_list = [
     "trojan",
     "podman",
 ]
+TEMP_NAME = "initscript"
 
 
 def init():
@@ -62,14 +63,14 @@ def init():
     install_all()
 
 
-def y_or_qy() -> str:
+def quiet() -> str:
     """
-    do you need quit mode?
+    do you need quiet?
     """
     if debug_mode():
-        return "-y"
+        return ""
     else:
-        return "-qy"
+        return "-q"
 
 
 def pacman(*args):
@@ -91,8 +92,8 @@ def day(*args):
                 "NEEDRESTART_MODE=a",  # for ubuntu
                 "DEBIAN_FRONTEND=noninteractive",  # for debian
                 {"a": "apt", "y": "yum", "d": "dnf"}.get(pm()),
-                "install",
-                y_or_qy(),
+                "install -y",
+                quiet(),
                 *args,
             )
         )
@@ -174,7 +175,8 @@ def install_base():
                         "yum",
                         "groupinstall",
                         "'Development Tools'",
-                        y_or_qy(),
+                        "-y",
+                        quiet(),
                     )
                 )
             )
@@ -188,14 +190,17 @@ def install_python_requests():
             basic_install("python3-requests")
 
 
-def install_from_file(p: Path, bin_name: str = ""):
-    """
-    :param all: 代表将 p 下的所有文件全部安装到
-    """
+def install_from_file(bin_name: str = ""):
+    logging.info("installing...")
+    p = Path("/tmp") / TEMP_NAME
+    if not bin_name:
+        logging.error("lossing bin_name when install from file")
     if isinstance(p, str):
         p = Path(p)
-    for i in chain(p.rglob(bin_name), p.rglob("*.fish"), p.rglob("*.service")):
-        assert i.is_file(), "found something is not a file"
+    temp = chain(p.rglob("*.fish"), p.rglob("*.service"))
+    for i in chain(p.rglob(bin_name), temp) if bin_name else temp:
+        if not i.is_file():
+            continue
         match i.suffix:
             case "":
                 rc_sudo(f"install -Dm755 {str(i.absolute())} /usr/bin/{i.name}")
@@ -210,12 +215,11 @@ def install_from_file(p: Path, bin_name: str = ""):
         logging.info(f"installed {i.name}")
 
 
-def install_from_dir_all(p: Path, to_: Path):
+def install_from_dir_all(to_: Path):
     """
     install all files from this dir to another dir
     """
-    if isinstance(p, str):
-        p = Path(p)
+    p = Path("/tmp") / TEMP_NAME
     if isinstance(to_, str):
         to_ = Path(to_)
     if not to_.is_dir():
@@ -228,7 +232,7 @@ def install_from_dir_all(p: Path, to_: Path):
         logging.info(f"installed {i.name} to {str(dest_path)}")
 
 
-def install_gh_release(s: str, bin_name: str = "", package_name: str = ""):
+def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
     """
     install newest package from github release
     :param s: `<author>/<repo>`, like `eza-community/eza`
@@ -240,6 +244,8 @@ def install_gh_release(s: str, bin_name: str = "", package_name: str = ""):
     @lru_cache
     def n(s):
         return s.rpartition("/")[-1]
+
+    logging.info(f"downloading from github: {s}")
 
     response = requests.get(f"https://api.github.com/repos/{s}/releases/latest")
     dl_links = (
@@ -262,22 +268,21 @@ def install_gh_release(s: str, bin_name: str = "", package_name: str = ""):
     assert url, "no release found"
     url = url[0]
 
-    rc("wget " + url, cwd="/tmp")
+    p = Path("/tmp") / TEMP_NAME
+    logging.info(f"downloading from {url}")
+    rc(f"wget -N {quiet()} {url} -O {TEMP_NAME}.tmp", cwd="/tmp")
     if url.rstrip("/").endswith(".zip"):
-        p = Path("/tmp") / n(url).rstrip(".zip")
         assert exists("unzip"), "unzip not found"
-        rc(f"unzip {n(url)} -d {str(p.absolute())}", cwd="/tmp")
+        rc(f"unzip -o {quiet()} {TEMP_NAME}.tmp -d {str(p.absolute())}", cwd="/tmp")
     elif url.rstrip("/").endswith(".tar.gz"):
-        p = Path("/tmp") / n(url).rstrip(".tar.gz")
-        rc(f"tar -xvaf {n(url)} --one-top-level", cwd="/tmp")
+        rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
     else:
         error_exit(f"{n(url)} cannot successfully extracted")
 
-    return p
-
 
 def install_trojan_go():
-    install_from_file(install_gh_release("p4gefau1t/trojan-go"))
+    download_gh_release("p4gefau1t/trojan-go")
+    install_from_file("trojan-go")
     rc("mkdir -p /etc/trojan-go")
     logging.info("install trojan-go success")
 
@@ -313,7 +318,8 @@ def install_fd():
         case "p":
             pacman("fd")
         case "a":
-            install_from_file(install_gh_release("sharkdp/fd"))
+            download_gh_release("sharkdp/fd")
+            install_from_file("fd")
     logging.info("fd success installed")
 
 
@@ -375,10 +381,6 @@ def install_cargo():
     if exists("cargo"):
         return
     basic_install("cargo")
-    # match distro():
-    #     case "a":
-    #         pacman("cargo")
-    #     case _:
     #         rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
     logging.info("cargo installed")
 
@@ -389,7 +391,8 @@ def install_sd():
             pacman("sd")
         case "a":
             if (distro() == "d" and version() < 13) or distro() == "u":
-                install_from_file(install_gh_release("chmln/sd"))
+                download_gh_release("chmln/sd")
+                install_from_file("sd")
             else:
                 basic_install("rust-sd")
     logging.info("sd installed")
@@ -418,7 +421,8 @@ def install_eza():
         case "p":
             pacman("eza")
         case _:
-            install_from_file(install_gh_release("eza-community/eza"))
+            download_gh_release("eza-community/eza")
+            install_from_file("eza")
     logging.info("eza installed")
 
 
@@ -449,9 +453,8 @@ def install_neovim():
         case "a":
             pacman("neovim")
         case _:
-            install_from_dir_all(
-                install_gh_release("neovim/neovim", "nvim-linux64"), "/usr"
-            )
+            download_gh_release("neovim/neovim", "nvim-linux64")
+            install_from_dir_all("/usr")
     logging.info("neovim installed")
 
 
@@ -460,8 +463,19 @@ def install_fastfetch():
         case "p":
             pacman("fastfetch")
         case _:
-            install_from_file(install_gh_release("fastfetch-cli/fastfetch"))
+            download_gh_release("fastfetch-cli/fastfetch")
+            install_from_file("fastfetch")
     logging.info("fastfetch installed")
+
+
+def install_zellij():
+    match pm():
+        case "p":
+            pacman("zellij")
+        case _:
+            download_gh_release("zellij-org/zellij")
+            install_from_file("zellij")
+    logging.info("zellij installed")
 
 
 others = {
@@ -482,6 +496,7 @@ others = {
     "yazi": install_yazi,
     "neovim": install_neovim,
     "fastfetch": install_fastfetch,
+    "zellij": install_zellij,
 }
 
 
