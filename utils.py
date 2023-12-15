@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 
+# shell utils
 def rc(s: str, **kwargs):
     """
     rc means run with check.
@@ -146,3 +147,25 @@ def pm():
         return "y"
     elif exists("dnf"):
         return "d"
+
+
+# logging
+def log(func):
+    """
+    It's a logging decorator, can print some messages in pre_running and post_running a function.
+    """
+
+    @functools.wraps(func)
+    def decorator(*args, **kwargs):
+        cut()
+        logging.info(
+            f"called {colored(func.__name__,'green')}"
+            + f" with args: {str(args)}, {str(kwargs)}"
+            if not args or not kwargs
+            else ""
+        )
+        result = func(*args, **kwargs)
+        logging.info(f"finished {colored(func.__name__,'green')}")
+        return result
+
+    return decorator

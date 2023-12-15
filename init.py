@@ -8,6 +8,7 @@
 
 import logging
 import os
+import pathlib
 import platform
 
 import afk
@@ -40,7 +41,7 @@ def ask() -> int:
 2. 安装所有推荐软件包
 3. 安装软件包（手动）
 4. 部署代理（前置：2）
-5. 部署定时任务（前置：4）
+5. 部署定时任务，用于证书与博客更新（前置：4）
 6. 一键挂机（本人的挂机脚本）
 """
     )
@@ -48,6 +49,7 @@ def ask() -> int:
     print(
         """
 7. 查看代理服务运行情况（前置：4）
+8. 清除脚本缓存
 """
     )
     cut()
@@ -75,8 +77,9 @@ if __name__ == "__main__":
             install.init()
         case 3:
             install.show_all_available_packages()
-            temp = input("请输入安装软件名：").strip()
-            install.install_one(temp)
+            temp = input("请输入安装软件名，以空格隔开：").strip()
+            for i in temp.split(" "):
+                install.install_one(i)
         case 4:
             proxy.init()
         case 5:
@@ -85,5 +88,8 @@ if __name__ == "__main__":
             afk.init()
         case 7:
             proxy.show_all_status()
+        case 8:
+            (pathlib.Path(mypath()) / ".cache").unlink()
+            logging.info("已清除脚本缓存。")
         case _:
             error_exit("输入有误。")

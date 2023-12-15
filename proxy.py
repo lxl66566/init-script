@@ -15,6 +15,7 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
+from mycache import *
 from utils import *
 
 PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
@@ -43,18 +44,20 @@ def init():
 
 
 def cache():
+    """
+    从 cache 中读取 domain, password
+    """
     global domain, password, wait
 
-    if (Path(mypath()) / ".cache" / ".wait").exists():
+    if mycache.simple_load("proxy.wait"):
         wait = 1
 
-    with suppress(FileExistsError):
-        (Path(mypath()) / ".cache").mkdir()
-    with suppress(FileNotFoundError):
-        with open(Path(mypath()) / ".cache" / "proxy.json", "r") as f:
-            cache = json.load(f)
-            domain = cache.get("domain")
-            password = cache.get("password")
+    cache = mycache("proxy").load()
+    if isinstance(cache, dict) and len(cache) == 2:
+        domain, password = (cache.get(k) for k in ("domain", "password"))
+        logging.info("successfully read domain and password from cache.")
+    else:
+        logging.info("cache is empty or corrupted.")
 
 
 def ask():
@@ -77,12 +80,7 @@ def ask():
 
     assert domain and password, "domain and password is empty"
 
-    with open(Path(mypath()) / ".cache" / "proxy.json", "w") as f:
-        json.dump(
-            {"domain": domain, "password": password},
-            f,
-            ensure_ascii=False,
-        )
+    mycache("proxy").save({"domain": domain, "password": password})
 
 
 def check_cert():
@@ -113,11 +111,14 @@ def config_caddy():
     logging.info("caddy 服务成功启动，等待 caddy 获取证书")
     time.sleep(wait)  # 等待 caddy 获取证书
 
-    (Path(mypath()) / ".cache" / ".wait").touch(exist_ok=True)
+    mycache.simple_save("proxy.wait")
     ln_caddy_cert()
 
 
 def ln_caddy_cert():
+    """
+    硬链接 caddy 证书到主目录
+    """
     global cert_crt_ln, cert_key_ln
 
     certs_dir = Path("/var/lib/caddy")
@@ -234,6 +235,10 @@ def config_trojan_go():
 
 
 def show_all_status():
+    """
+    展示服务运行状态
+    """
+
     def show_one_status(service: str):
         rc(f"systemctl status {service} --no-pager")
 

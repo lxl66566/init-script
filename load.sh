@@ -4,7 +4,7 @@
 #
 # https://github.com/lxl66566/init-script
 #
-# This script is now only work for Archlinux, Debian and Ubuntu.
+# This script is only work for Archlinux, Debian and Ubuntu.
 #
 # PLEASE RUN AS ROOT, YOU ARE AWARE OF THE RISKS INVOLVED AND CONTINUE.
 
@@ -54,7 +54,8 @@ fi
 
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
-git clone https://github.com/lxl66566/init-script.git || error_exit "git clone 失败"
+rm -rf init-script
+git clone https://github.com/lxl66566/init-script.git --filter=tree:0 || error_exit "git clone 失败"
 touch $lockfile
 chmod 777 $mypath -R || error_exit "授权失败"
 cd init-script

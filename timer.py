@@ -3,8 +3,6 @@ import logging
 from pathlib import Path
 from subprocess import run
 
-from info import mypath
-
 from proxy import ln_caddy_cert
 from utils import *
 

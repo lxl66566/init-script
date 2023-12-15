@@ -6,6 +6,7 @@ from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 
+from mycache import *
 from ufcs import UFCS
 from utils import *
 
@@ -100,9 +101,10 @@ def day(*args):
     )
 
 
-def basic_install(*args):
+def basic_install(*args) -> bool:
     """
     basically install any packages by pm
+    actually it's pacman + dnf + apt + yum 4 in 1
     """
     cut()
     logging.info("开始安装：" + " ".join(args))
@@ -112,6 +114,7 @@ def basic_install(*args):
         case _:
             day(*args)
     logging.info("安装完成：" + " ".join(args))
+    return True
 
 
 def cargo(*args):
@@ -121,6 +124,8 @@ def cargo(*args):
         install_cargo()
 
 
+@log
+@mycache_once(name="install")
 def config_fish():
     if not (Path(mypath()) / "dotfile").exists():
         rc(
@@ -129,10 +134,17 @@ def config_fish():
         )
     dotfile = mypath().rstrip("/") + "/dotfile"
     rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/fish", cwd=mypath())
-    logging.info("copy fish config success")
+
+
+@log
+@mycache_once(name="install")
+def install_my_list():
+    basic_install(*my_install_list)
 
 
 # because AUR has a lot of problems, i decide to install them manually instead of AUR
+@log
+@mycache_once(name="install")
 def install_paru():
     assert distro() == "a", "Only support Arch Linux"
     assert not is_root(), "installing paru must not be root"
@@ -146,9 +158,10 @@ def install_paru():
         cwd="/tmp",
     )
     rc("makepkg -si")
-    logging.info("install paru success")
 
 
+@log
+@mycache_once(name="install")
 def install_cron():
     match pm():
         case "p":
@@ -159,6 +172,8 @@ def install_cron():
             rc_sudo("systemctl enable --now cron")
 
 
+@log
+@mycache_once(name="install")
 def install_base():
     """
     为了之后的 nvim 插件做准备，300MB，不想装可以不用
@@ -182,6 +197,8 @@ def install_base():
             )
 
 
+@log
+@mycache_once(name="install")
 def install_python_requests():
     match pm():
         case "p":
@@ -258,6 +275,9 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
 
     url = (
         dl_links.filter(lambda x: "linux" in n(x).lower())
+        .filter(  # now only accept tar.gz and zip.
+            lambda x: n(x).lower().endswith("tar.gz") or n(x).lower().endswith("zip")
+        )
         .sorted(key=lambda x: "musl" not in n(x))
         .sorted(key=lambda x: n(x).endswith("tar.gz"))  # 优先使用 musl，zip
         .sorted(key=lambda x: "x86_64" not in n(x) and "amd64" not in n(x).lower())
@@ -280,13 +300,16 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
         error_exit(f"{n(url)} cannot successfully extracted")
 
 
+@log
+@mycache_once(name="install")
 def install_trojan_go():
     download_gh_release("p4gefau1t/trojan-go")
     install_from_file("trojan-go")
     rc("mkdir -p /etc/trojan-go")
-    logging.info("install trojan-go success")
 
 
+@log
+@mycache_once(name="install")
 def install_caddy():
     match pm():
         case "p":
@@ -305,14 +328,16 @@ def install_caddy():
             day("yum-plugin-copr")
             rc_sudo("yum copr enable @caddy/caddy")
             basic_install("caddy")
-    logging.info("install caddy success")
 
 
+@log
+@mycache_once(name="install")
 def install_hysteria():
     rc_sudo("curl -fsSL https://get.hy2.sh/ | bash")
-    logging.info("install hysteria success")
 
 
+@log
+@mycache_once(name="install")
 def install_fd():
     match pm():
         case "p":
@@ -320,9 +345,10 @@ def install_fd():
         case "a":
             download_gh_release("sharkdp/fd")
             install_from_file("fd")
-    logging.info("fd success installed")
 
 
+@log
+@mycache_once(name="install")
 def install_mcfly():
     match distro():
         case "a":
@@ -331,9 +357,10 @@ def install_mcfly():
             rc_sudo(
                 "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly"
             )
-    logging.info("install mcfly success")
 
 
+@log
+@mycache_once(name="install")
 def install_zoxide():
     match distro():
         case "a":
@@ -345,9 +372,10 @@ def install_zoxide():
                 )
             else:
                 basic_install("zoxide")
-    logging.info("install zoxide success")
 
 
+@log
+@mycache_once(name="install")
 def install_fish():
     match pm():
         case "p":
@@ -365,26 +393,29 @@ def install_fish():
             else:
                 basic_install("fish")
     rc_sudo("chsh -s /usr/bin/fish")
-    logging.info("fish installed")
 
 
+@log
+@mycache_once(name="install")
 def install_starship():
     match distro():
         case "a":
             pacman("starship")
         case _:
             rc_sudo("curl -sS https://starship.rs/install.sh | sh -s -- -y")
-    logging.info("starship installed")
 
 
+@log
+@mycache_once(name="install")
 def install_cargo():
     if exists("cargo"):
         return
     basic_install("cargo")
     #         rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
-    logging.info("cargo installed")
 
 
+@log
+@mycache_once(name="install")
 def install_sd():
     match pm():
         case "p":
@@ -395,9 +426,10 @@ def install_sd():
                 install_from_file("sd")
             else:
                 basic_install("rust-sd")
-    logging.info("sd installed")
 
 
+@log
+@mycache_once(name="install")
 def install_rg():
     match pm():
         case "p":
@@ -413,9 +445,10 @@ def install_rg():
                 rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
             else:
                 basic_install("ripgrep")
-    logging.info("rg installed")
 
 
+@log
+@mycache_once(name="install")
 def install_eza():
     match pm():
         case "p":
@@ -423,9 +456,10 @@ def install_eza():
         case _:
             download_gh_release("eza-community/eza")
             install_from_file("eza")
-    logging.info("eza installed")
 
 
+@log
+@mycache_once(name="install")
 def install_yazi():
     match distro():
         case "a":
@@ -445,9 +479,10 @@ def install_yazi():
             rc_sudo(
                 f"install -Dm644 '/tmp/{yazi_name}/completions/yazi.fish' '/usr/share/fish/vendor_completions.d/yazi.fish'"
             )
-    logging.info("yazi installed")
 
 
+@log
+@mycache_once(name="install")
 def install_neovim():
     match distro():
         case "a":
@@ -455,9 +490,10 @@ def install_neovim():
         case _:
             download_gh_release("neovim/neovim", "nvim-linux64")
             install_from_dir_all("/usr")
-    logging.info("neovim installed")
 
 
+@log
+@mycache_once(name="install")
 def install_fastfetch():
     match pm():
         case "p":
@@ -465,9 +501,10 @@ def install_fastfetch():
         case _:
             download_gh_release("fastfetch-cli/fastfetch")
             install_from_file("fastfetch")
-    logging.info("fastfetch installed")
 
 
+@log
+@mycache_once(name="install")
 def install_zellij():
     match pm():
         case "p":
@@ -475,7 +512,6 @@ def install_zellij():
         case _:
             download_gh_release("zellij-org/zellij")
             install_from_file("zellij")
-    logging.info("zellij installed")
 
 
 others = {
@@ -503,8 +539,7 @@ others = {
 def install_all():
     cut()
     logging.info(colored("starting to install ALL", "green"))
-    basic_install(*my_install_list)
-
+    install_my_list()
     for p in others.values():
         p()
 
@@ -526,6 +561,6 @@ def install_one(p: str):
     try:
         others.get(p)()
     except TypeError:
-        error_exit("脚本未收录此软件")
+        error_exit(f"脚本未收录软件：{p}")
     except KeyboardInterrupt:
         error_exit("退出脚本")
