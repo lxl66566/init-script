@@ -46,12 +46,8 @@ def is_service_running(service_name: str):
     return output == "active"
 
 
-def is_root():
+def is_root() -> bool:
     return os.geteuid() == 0
-
-
-def current_dir():
-    return os.path.dirname(os.path.realpath(__file__))
 
 
 def colored(msg: str, color: str):
@@ -80,8 +76,8 @@ def error_exit(msg: str):
 
 # info utils
 @functools.lru_cache
-def mypath():
-    return os.getenv("mypath") or "/absx"
+def mypath() -> pathlib.Path:
+    return pathlib.Path(os.getenv("mypath") or "/absx")
 
 
 @functools.lru_cache
@@ -161,7 +157,7 @@ def log(func):
         logging.info(
             f"called {colored(func.__name__,'green')}"
             + f" with args: {str(args)}, {str(kwargs)}"
-            if not args or not kwargs
+            if args or kwargs
             else ""
         )
         result = func(*args, **kwargs)

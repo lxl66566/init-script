@@ -28,6 +28,7 @@ my_install_list = [
     "podman",
 ]
 TEMP_NAME = "initscript"
+TEMP_PATH = Path("/tmp") / TEMP_NAME
 
 
 def init():
@@ -106,7 +107,6 @@ def basic_install(*args) -> bool:
     basically install any packages by pm
     actually it's pacman + dnf + apt + yum 4 in 1
     """
-    cut()
     logging.info("开始安装：" + " ".join(args))
     match pm():
         case "p":
@@ -127,13 +127,13 @@ def cargo(*args):
 @log
 @mycache_once(name="install")
 def config_fish():
-    if not (Path(mypath()) / "dotfile").exists():
+    if not (mypath() / "dotfile").exists():
         rc(
             "git clone https://github.com/lxl66566/dotfile.git -b archlinux --depth 1",
             cwd=mypath(),
         )
-    dotfile = mypath().rstrip("/") + "/dotfile"
-    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/fish", cwd=mypath())
+    dotfile = mypath() / "dotfile"
+    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/.config", cwd=mypath())
 
 
 @log
@@ -209,7 +209,7 @@ def install_python_requests():
 
 def install_from_file(bin_name: str = ""):
     logging.info("installing...")
-    p = Path("/tmp") / TEMP_NAME
+    p = TEMP_PATH
     if not bin_name:
         logging.error("lossing bin_name when install from file")
     if isinstance(p, str):
@@ -232,19 +232,21 @@ def install_from_file(bin_name: str = ""):
         logging.info(f"installed {i.name}")
 
 
-def install_from_dir_all(to_: Path):
+def install_from_dir_all(to_: Path, from_: Path = TEMP_PATH):
     """
     install all files from this dir to another dir
+    make sure that there's no additional file on the /tmp/{TEMP_NAME}
     """
-    p = Path("/tmp") / TEMP_NAME
     if isinstance(to_, str):
         to_ = Path(to_)
+    if isinstance(from_, str):
+        from_ = Path(from_)
     if not to_.is_dir():
         error_exit(f"{to_} is not a existing directory")
-    for i in p.rglob("*"):
+    for i in from_.rglob("*"):
         if not i.is_file():
             continue
-        dest_path = to_ / i.relative_to(p)
+        dest_path = to_ / i.relative_to(from_)
         rc_sudo(f"install -Dm755 {str(i.absolute())} {str(dest_path)}")
         logging.info(f"installed {i.name} to {str(dest_path)}")
 
@@ -291,6 +293,8 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
     p = Path("/tmp") / TEMP_NAME
     logging.info(f"downloading from {url}")
     rc(f"wget -N {quiet()} {url} -O {TEMP_NAME}.tmp", cwd="/tmp")
+    # 先删除上次安装缓存，否则会出事，解压的文件会混在一起
+    rc(f"rm -rf {str(p.absolute())}", cwd="/tmp")
     if url.rstrip("/").endswith(".zip"):
         assert exists("unzip"), "unzip not found"
         rc(f"unzip -o {quiet()} {TEMP_NAME}.tmp -d {str(p.absolute())}", cwd="/tmp")
@@ -355,7 +359,7 @@ def install_mcfly():
             pacman("mcfly")
         case _:
             rc_sudo(
-                "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly"
+                "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
             )
 
 
@@ -488,8 +492,12 @@ def install_neovim():
         case "a":
             pacman("neovim")
         case _:
-            download_gh_release("neovim/neovim", "nvim-linux64")
-            install_from_dir_all("/usr")
+            __name = "nvim-linux64"
+            download_gh_release("neovim/neovim", __name)
+            install_from_dir_all(
+                to_="/usr",
+                from_=TEMP_PATH / __name,
+            )
 
 
 @log
@@ -521,7 +529,7 @@ others = {
     "mcfly": install_mcfly,
     "starship": install_starship,
     "eza": install_eza,
-    "my_config_option": config_fish,
+    "config_option": config_fish,
     "cron": install_cron,
     "caddy": install_caddy,
     "trojan-go": install_trojan_go,
@@ -551,7 +559,7 @@ def show_all_available_packages():
     print("可用软件包：")
     temp = copy(my_install_list)
     temp.extend(others.keys())
-    UFCS(temp).filter(lambda x: x != "my_config_option").print()
+    UFCS(temp).print()
 
 
 def install_one(p: str):

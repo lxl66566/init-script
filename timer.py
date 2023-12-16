@@ -46,7 +46,7 @@ def init():
             .strip()
         )
     assert python_exe, "Python path not found"
-    task = f"{python_exe} {os.path.realpath(__file__)}"
+    task = f"{python_exe} {Path(__file__).resolve()}"
     add_task_daily(task)
     assert daily.exists(), "write daily cron script failed"
     daily.chmod(0o755)
@@ -56,6 +56,6 @@ def init():
 if __name__ == "__main__":
     rc(
         "git fetch origin main && git reset --hard origin/main",
-        cwd=os.path.join(mypath(), "lxl66566.github.io"),
+        cwd=mypath() / "lxl66566.github.io",
     )
-    ln_caddy_cert()
+    ln_caddy_cert() or error_exit("证书链接失败")

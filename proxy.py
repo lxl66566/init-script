@@ -10,7 +10,6 @@
 
 import json
 import logging
-import os
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -24,8 +23,8 @@ domain = ""
 password = []
 cert_crt_ln = Path()
 cert_key_ln = Path()
-wait = 20
-config_path = Path(mypath()) / "init-script" / "config"
+wait = 10
+config_path = mypath() / "init-script" / "config"
 
 
 def init():
@@ -95,27 +94,31 @@ def config_caddy():
     """
     配置 caddy 及其证书
     """
-    (Path(mypath()) / "lxl66566.github.io").exists() or rc(
+    (mypath() / "lxl66566.github.io").exists() or rc(
         "git clone https://github.com/lxl66566/lxl66566.github.io.git -b main --depth 1",
         cwd=mypath(),
     )
 
     content = (config_path / "Caddyfile").read_text(encoding="utf-8")
-    content = content.replace("/absx", mypath())
+    content = content.replace("/absx", str(mypath()))
     content = content.replace("jp.absx.online", domain)
 
     Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
-    logging.info("caddy 服务成功启动，等待 caddy 获取证书")
+    logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
     time.sleep(wait)  # 等待 caddy 获取证书
+    if ln_caddy_cert():
+        return
+    logging.info("未找到证书，尝试重新启动 caddy...")
+    rc_sudo("systemctl restart caddy")
+    logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
+    time.sleep(wait)
+    ln_caddy_cert() or error_exit("无法获取证书。")
 
-    mycache.simple_save("proxy.wait")
-    ln_caddy_cert()
 
-
-def ln_caddy_cert():
+def ln_caddy_cert() -> bool:
     """
     硬链接 caddy 证书到主目录
     """
@@ -126,11 +129,11 @@ def ln_caddy_cert():
         cert_crt = next(certs_dir.rglob(domain + ".crt"))
         cert_key = next(certs_dir.rglob(domain + ".key"))
     except StopIteration:
-        error_exit("未找到证书，尝试重新生成")
+        return False
 
     assert cert_crt.exists() and cert_key.exists(), "未找到证书，尝试重新生成"
-    cert_crt_ln = Path(mypath()) / cert_crt.name
-    cert_key_ln = Path(mypath()) / cert_key.name
+    cert_crt_ln = mypath() / cert_crt.name
+    cert_key_ln = mypath() / cert_key.name
     cert_crt_ln.unlink(True)
     cert_key_ln.unlink(True)
 
@@ -145,7 +148,9 @@ def ln_caddy_cert():
     cert_crt_ln.chmod(0o777)
     cert_key_ln.chmod(0o777)
     check_cert()
+    mycache.simple_save("proxy.wait")
     logging.info("证书配置完成")
+    return True
 
 
 def config_hysteria():
@@ -165,7 +170,7 @@ def config_hysteria():
         json.dump(config, f, indent=2, ensure_ascii=False)
     logging.info("hysteria 配置完成")
 
-    assert os.geteuid() == 0, "This function must be run as root."
+    assert is_root(), "This function must be run as root."
     for p in (
         "/etc/systemd/system/hysteria-server@.service",
         "/usr/lib/systemd/system/hysteria-server@.service",

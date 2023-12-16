@@ -8,13 +8,14 @@
 
 import logging
 import os
-import pathlib
 import platform
+import shutil
 
 import afk
 import install
 import proxy
 import timer
+from mycache import *
 from utils import *
 
 
@@ -89,7 +90,12 @@ if __name__ == "__main__":
         case 7:
             proxy.show_all_status()
         case 8:
-            (pathlib.Path(mypath()) / ".cache").unlink()
+            shutil.rmtree(
+                mycache.cache_dir(),
+                onerror=lambda *args: error_exit(
+                    f"清除缓存失败，请手动删除{str(mycache.cache_dir().absolute())}"
+                ),
+            )
             logging.info("已清除脚本缓存。")
         case _:
             error_exit("输入有误。")

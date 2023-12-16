@@ -30,6 +30,7 @@ printf "安装主目录：$mypath\n"
 
 lockfile=$mypath"/.lock_for_load"    # 避免二次 clone 的问题
 if [ -e $lockfile ]; then
+    cd $mypath"/init-script"
     python3 init.py
     exit 0
 fi

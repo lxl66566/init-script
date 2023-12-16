@@ -56,7 +56,7 @@ class mycache:
 
     @staticmethod
     def cache_dir() -> pathlib.Path:
-        return (pathlib.Path(mypath()) / ".cache").resolve()
+        return (mypath() / ".cache").resolve()
 
     @staticmethod
     def simple_save(name: str) -> None:
