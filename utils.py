@@ -156,9 +156,7 @@ def log(func):
         cut()
         logging.info(
             f"called {colored(func.__name__,'green')}"
-            + f" with args: {str(args)}, {str(kwargs)}"
-            if args or kwargs
-            else ""
+            + (f" with args: {str(args)}, {str(kwargs)}" if args or kwargs else "")
         )
         result = func(*args, **kwargs)
         logging.info(f"finished {colored(func.__name__,'green')}")

@@ -78,9 +78,17 @@ if __name__ == "__main__":
             install.init()
         case 3:
             install.show_all_available_packages()
-            temp = input("请输入安装软件名，以空格隔开：").strip()
-            for i in temp.split(" "):
-                install.install_one(i)
+            temp = (
+                input("请输入安装软件名，以空格隔开，输入 -y 无视缓存安装：")
+                .strip()
+                .split(" ")
+            )
+            flag = False
+            if "-y" in temp:
+                temp.remove("-y")
+                flag = True
+            for i in temp:
+                install.install_one(i, flag)
         case 4:
             proxy.init()
         case 5:

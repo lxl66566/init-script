@@ -55,6 +55,7 @@ fi
 
 mkdir -p $mypath || error_exit "创建目录失败"
 cd $mypath
+git config --global --add safe.directory '*'
 rm -rf init-script
 git clone https://github.com/lxl66566/init-script.git --filter=tree:0 || error_exit "git clone 失败"
 touch $lockfile

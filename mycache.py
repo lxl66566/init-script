@@ -1,4 +1,5 @@
 # cache utils
+import contextlib
 import functools
 import logging
 import pathlib
@@ -53,6 +54,18 @@ class mycache:
         temp.add(data)
         self.save(temp)
         return True
+
+    def remove_set(self, data: any):
+        """
+        remove a value from cache set
+        """
+        temp = self.load()
+        if not temp:
+            return
+        assert isinstance(temp, set), "cannot use remove to a non-set"
+        with contextlib.suppress(KeyError):
+            temp.remove(data)
+        self.save(temp)
 
     @staticmethod
     def cache_dir() -> pathlib.Path:

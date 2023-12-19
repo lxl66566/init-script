@@ -127,12 +127,16 @@ def cargo(*args):
 @log
 @mycache_once(name="install")
 def config_fish():
-    if not (mypath() / "dotfile").exists():
+    dotfile = mypath() / "dotfile"
+    branch = "archlinux"
+    if not dotfile.exists():
         rc(
-            "git clone https://github.com/lxl66566/dotfile.git -b archlinux --depth 1",
+            f"git clone https://github.com/lxl66566/dotfile.git -b {branch} --depth 1",
             cwd=mypath(),
         )
-    dotfile = mypath() / "dotfile"
+    else:
+        rc(f"git fetch --all {quiet()} -f", cwd=dotfile)
+        rc(f"git reset --hard origin/{branch}", cwd=dotfile)
     rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/.config", cwd=mypath())
 
 
@@ -302,6 +306,34 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
         rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
     else:
         error_exit(f"{n(url)} cannot successfully extracted")
+
+
+@log
+@mycache_once(name="install")
+def install_python_pip():
+    match pm():
+        case "p":
+            pacman("python-pip")
+        case _:
+            day("python3-pip")
+
+
+@log
+@mycache_once(name="install")
+def install_python_pipx():
+    match pm():
+        case "p":
+            pacman("python-pipx")
+        case _:
+            day("pipx")
+
+
+@log
+@mycache_once(name="install")
+def install_python_lastversion():
+    install_python_pipx()
+    rc("pipx install lastversion")
+    rc("pipx ensurepath")
 
 
 @log
@@ -522,25 +554,31 @@ def install_zellij():
             install_from_file("zellij")
 
 
+# 函数映射和是否自动安装
 others = {
-    "python_requests": install_python_requests,
-    "fish": install_fish,
-    "base": install_base,
-    "mcfly": install_mcfly,
-    "starship": install_starship,
-    "eza": install_eza,
-    "config_option": config_fish,
-    "cron": install_cron,
-    "caddy": install_caddy,
-    "trojan-go": install_trojan_go,
-    "hysteria": install_hysteria,
-    "fd": install_fd,
-    "sd": install_sd,
-    "rg": install_rg,
-    "yazi": install_yazi,
-    "neovim": install_neovim,
-    "fastfetch": install_fastfetch,
-    "zellij": install_zellij,
+    "python_requests": (install_python_requests, True),
+    "fish": (install_fish, True),
+    "base": (install_base, True),
+    "mcfly": (install_mcfly, True),
+    "starship": (install_starship, True),
+    "eza": (install_eza, True),
+    "config_option": (config_fish, True),
+    "cron": (install_cron, True),
+    "caddy": (install_caddy, True),
+    "trojan-go": (install_trojan_go, True),
+    "hysteria": (install_hysteria, True),
+    "fd": (install_fd, True),
+    "sd": (install_sd, True),
+    "rg": (install_rg, True),
+    "yazi": (install_yazi, True),
+    "neovim": (install_neovim, True),
+    "fastfetch": (install_fastfetch, True),
+    "zellij": (install_zellij, True),
+    "pip": (install_python_pip, False),
+    "pipx": (install_python_pipx, False),
+    "lastversion": (install_python_lastversion, False),
+    "cargo": (install_cargo, False),
+    "paru": (install_paru, False),
 }
 
 
@@ -548,9 +586,9 @@ def install_all():
     cut()
     logging.info(colored("starting to install ALL", "green"))
     install_my_list()
-    for p in others.values():
-        p()
-
+    for p, auto in others.values():
+        if auto:
+            p()
     cut()
     logging.info("all packages have been installed")
 
@@ -559,15 +597,18 @@ def show_all_available_packages():
     print("可用软件包：")
     temp = copy(my_install_list)
     temp.extend(others.keys())
-    UFCS(temp).print()
+    UFCS(temp).sorted().print()
 
 
-def install_one(p: str):
+def install_one(p: str, ignore_cache: bool = False):
     if p in my_install_list:
         basic_install(p)
         return
     try:
-        others.get(p)()
+        func = others.get(p)[0]
+        if ignore_cache:
+            mycache("install").remove_set(func.__name__)
+        func()
     except TypeError:
         error_exit(f"脚本未收录软件：{p}")
     except KeyboardInterrupt:
