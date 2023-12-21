@@ -30,7 +30,7 @@ def init():
 
     cut()
     print(
-        f"运行环境：distro: {distro()}, pm: {pm()}, debug mode: {True if debug_mode() else False}"
+        f"运行环境：distro: {colored(distro(), 'green')}, pm: {colored(pm(), 'green')}, debug mode: {colored(str(True if debug_mode() else False), 'green')}"
     )
 
 

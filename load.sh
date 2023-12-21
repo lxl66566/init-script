@@ -9,47 +9,45 @@
 # PLEASE RUN AS ROOT, YOU ARE AWARE OF THE RISKS INVOLVED AND CONTINUE.
 
 _red() {
-    printf '\033[0;31;31m%b\033[0m' "$1"
+	printf '\033[0;31;31m%b\033[0m' "$1"
 }
 
-error_exit()
-{
-    _red "Error: $1"
-    exit 1
+error_exit() {
+	_red "Error: $1"
+	exit 1
 }
 
 default="/absx"
 if [ -z "$mypath" ]; then
-    export mypath=$default
+	export mypath=$default
 fi
 if [[ ! $mypath = /* ]]; then
-    printf "环境变量不合格，使用默认安装主目录\n"
-    export mypath=$default
+	printf "环境变量不合格，使用默认安装主目录\n"
+	export mypath=$default
 fi
 printf "安装主目录：$mypath\n"
 
-lockfile=$mypath"/.lock_for_load"    # 避免二次 clone 的问题
+lockfile=$mypath"/.lock_for_load" # 避免二次 clone 的问题
 if [ -e $lockfile ]; then
-    cd $mypath"/init-script"
-    python3 init.py
-    exit 0
+	cd $mypath"/init-script"
+	python3 init.py
+	exit 0
 fi
 
 # 安装所需包
 packages="git python3"
-if command -v pacman &> /dev/null ; then
-    pacman -Syu --noconfirm python git
-elif command -v apt &> /dev/null ; then
-    apt update -y
-    apt install -qy $packages
-elif command -v yum &> /dev/null ; then
-    yum update -y
-    yum install -qy $packages
-elif command -v dnf &> /dev/null ; then
-    dnf update -y
-    dnf install -qy $packages
+if command -v pacman &>/dev/null; then
+	pacman -Syu --needed --noconfirm python git
+elif command -v apt &>/dev/null; then
+	apt update -y
+	apt install -qy $packages
+elif command -v yum &>/dev/null; then
+	yum update -y
+	yum install -qy $packages
+elif command -v dnf &>/dev/null; then
+	dnf update -y
+	dnf install -qy $packages
 fi
-
 
 # 实在不知道要放哪边还不会有权限问题，因此出此下策，放根目录
 

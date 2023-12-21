@@ -55,7 +55,7 @@ def init():
 
 if __name__ == "__main__":
     rc(
-        "git fetch origin main && git reset --hard origin/main",
+        "git fetch origin main --filter=tree:0 && git reset --hard origin/main",
         cwd=mypath() / "lxl66566.github.io",
     )
     try:

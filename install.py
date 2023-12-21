@@ -124,6 +124,21 @@ def cargo(*args):
         install_cargo()
 
 
+# do not use it, it cannot work.
+def lastversion(s: str, bin_name: str = ""):
+    """
+    install something via lastversion
+    :param s: github repo
+    :param bin_name: executable binary filename parse to install_from_file
+    """
+    if not exists("lastversion"):
+        install_python_lastversion()
+    assert exists("lastversion"), "lastversion not installed"
+    rc(f"lastversion {s} --assets -yv -d {TEMP_PATH}.tmp")
+    rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
+    install_from_file(bin_name or s.rpartition("/")[-1])
+
+
 @log
 @mycache_once(name="install")
 def config_fish():
@@ -211,7 +226,7 @@ def install_python_requests():
             basic_install("python3-requests")
 
 
-def install_from_file(bin_name: str = ""):
+def install_from_file(bin_name: str):
     logging.info("installing...")
     p = TEMP_PATH
     if not bin_name:
@@ -255,7 +270,21 @@ def install_from_dir_all(to_: Path, from_: Path = TEMP_PATH):
         logging.info(f"installed {i.name} to {str(dest_path)}")
 
 
-def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
+def unzip(__type: str):
+    # 先删除上次安装缓存，否则会出事，解压的文件会混在一起
+    rc(f"rm -rf {TEMP_PATH}", cwd="/tmp")
+
+    match __type:
+        case "zip":
+            assert exists("unzip"), "unzip not found"
+            rc(f"unzip -o {quiet()} {TEMP_NAME}.tmp -d {TEMP_NAME}", cwd="/tmp")
+        case "tar":
+            rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
+        case _:
+            error_exit(f"file with type `{__type}` cannot successfully extracted")
+
+
+def download_gh_release(s: str, package_name: str = ""):
     """
     install newest package from github release
     :param s: `<author>/<repo>`, like `eza-community/eza`
@@ -277,7 +306,6 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
         .map(lambda x: x.get("browser_download_url"))
     )
     assert list(dl_links), "no release found"
-    bin_name = bin_name or n(s)
 
     url = (
         dl_links.filter(lambda x: "linux" in n(x).lower())
@@ -294,18 +322,22 @@ def download_gh_release(s: str, bin_name: str = "", package_name: str = ""):
     assert url, "no release found"
     url = url[0]
 
-    p = Path("/tmp") / TEMP_NAME
     logging.info(f"downloading from {url}")
-    rc(f"wget -N {quiet()} {url} -O {TEMP_NAME}.tmp", cwd="/tmp")
-    # 先删除上次安装缓存，否则会出事，解压的文件会混在一起
-    rc(f"rm -rf {str(p.absolute())}", cwd="/tmp")
+    rc(f"wget -N {quiet()} {url} -O {TEMP_PATH}.tmp", cwd="/tmp")
     if url.rstrip("/").endswith(".zip"):
-        assert exists("unzip"), "unzip not found"
-        rc(f"unzip -o {quiet()} {TEMP_NAME}.tmp -d {str(p.absolute())}", cwd="/tmp")
-    elif url.rstrip("/").endswith(".tar.gz"):
-        rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
+        unzip("zip")
     else:
-        error_exit(f"{n(url)} cannot successfully extracted")
+        unzip("tar")
+
+
+def github(s: str):
+    """
+    install a repo from github binary release.
+    :param s: github repo, `<author>/<repo>`
+    """
+    temp = s.rpartition("/")[-1]
+    download_gh_release(s)
+    install_from_file(temp)
 
 
 @log
@@ -326,12 +358,14 @@ def install_python_pipx():
             pacman("python-pipx")
         case _:
             day("pipx")
+    rc("fish_add_path ~/.local/bin")
 
 
 @log
 @mycache_once(name="install")
 def install_python_lastversion():
-    install_python_pipx()
+    if not exists("pipx"):
+        install_python_pipx()
     rc("pipx install lastversion")
     rc("pipx ensurepath")
 
@@ -379,8 +413,7 @@ def install_fd():
         case "p":
             pacman("fd")
         case "a":
-            download_gh_release("sharkdp/fd")
-            install_from_file("fd")
+            github("sharkdp/fd")
 
 
 @log
@@ -458,8 +491,7 @@ def install_sd():
             pacman("sd")
         case "a":
             if (distro() == "d" and version() < 13) or distro() == "u":
-                download_gh_release("chmln/sd")
-                install_from_file("sd")
+                github("chmln/sd")
             else:
                 basic_install("rust-sd")
 
@@ -481,6 +513,8 @@ def install_rg():
                 rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
             else:
                 basic_install("ripgrep")
+        case _:
+            github("BurntSushi/ripgrep")
 
 
 @log
@@ -490,8 +524,7 @@ def install_eza():
         case "p":
             pacman("eza")
         case _:
-            download_gh_release("eza-community/eza")
-            install_from_file("eza")
+            github("eza-community/eza")
 
 
 @log
@@ -501,20 +534,15 @@ def install_yazi():
         case "a":
             pacman("yazi", "ffmpegthumbnailer", "unarchiver", "jq", "poppler")
         case _:
-            # cargo("yazi-fm")
+            # github("sxyazi/yazi")
+            # github api 无法获取 pre-release，因此手动下载。
             yazi_name = "yazi-x86_64-unknown-linux-gnu"
             rc(
-                f"wget https://github.com/sxyazi/yazi/releases/download/v0.1.5/{yazi_name}.zip",
+                f"wget -N {quiet()} https://github.com/sxyazi/yazi/releases/download/v0.1.5/{yazi_name}.zip -O {TEMP_PATH}.tmp",
                 cwd="/tmp",
             )
-            rc(
-                f"unzip /tmp/{yazi_name}.zip",
-                cwd="/tmp",
-            )
-            rc_sudo(f"install -Dm755 '/tmp/{yazi_name}/yazi' '/usr/bin/yazi'")
-            rc_sudo(
-                f"install -Dm644 '/tmp/{yazi_name}/completions/yazi.fish' '/usr/share/fish/vendor_completions.d/yazi.fish'"
-            )
+            unzip("zip")
+            install_from_file("yazi")
 
 
 @log
@@ -539,8 +567,7 @@ def install_fastfetch():
         case "p":
             pacman("fastfetch")
         case _:
-            download_gh_release("fastfetch-cli/fastfetch")
-            install_from_file("fastfetch")
+            github("fastfetch-cli/fastfetch")
 
 
 @log
@@ -550,8 +577,27 @@ def install_zellij():
         case "p":
             pacman("zellij")
         case _:
-            download_gh_release("zellij-org/zellij")
-            install_from_file("zellij")
+            github("zellij-org/zellij")
+
+
+@log
+@mycache_once(name="install")
+def install_bat():
+    match pm():
+        case "p":
+            pacman("bat")
+        case _:
+            github("sharkdp/bat")
+
+
+@log
+@mycache_once(name="install")
+def install_xh():
+    match pm():
+        case "p":
+            pacman("xh")
+        case _:
+            github("ducaale/xh")
 
 
 # 函数映射和是否自动安装
@@ -579,6 +625,8 @@ others = {
     "lastversion": (install_python_lastversion, False),
     "cargo": (install_cargo, False),
     "paru": (install_paru, False),
+    "bat": (install_bat, True),
+    "xh": (install_xh, True),
 }
 
 

@@ -17,6 +17,7 @@
 作为 python 项目，它实现了：
 
 - 自动获取 github latest release 的二进制文件，筛选合适的并下载安装
+  - 感觉比 [lastversion](https://github.com/dvershinin/lastversion/blob/master/README-ZH-CN.md) 好用。
 - 日志与缓存系统
 
 ## 使用
