@@ -20,8 +20,8 @@ def add_task(s: str):
 def add_task_daily(s: str):
     # add_task(f"0 0 * * * {s}")
     try:
-        with daily.open("a", encoding="utf-8") as f:
-            f.write(f"{s}\n")
+        daily.write_text(s, encoding="utf-8")
+        daily.chmod(0o755)
     except PermissionError:
         logging.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
@@ -46,7 +46,7 @@ def init():
             .strip()
         )
     assert python_exe, "Python path not found"
-    task = f"{python_exe} {Path(__file__).resolve()}"
+    task = f"#!/bin/bash\n{python_exe} {Path(__file__).resolve()}\nexit 0\n"
     add_task_daily(task)
     assert daily.exists(), "write daily cron script failed"
     daily.chmod(0o755)
@@ -58,4 +58,7 @@ if __name__ == "__main__":
         "git fetch origin main && git reset --hard origin/main",
         cwd=mypath() / "lxl66566.github.io",
     )
-    ln_caddy_cert() or error_exit("证书链接失败")
+    try:
+        ln_caddy_cert()
+    except Exception as e:
+        error_exit(e)

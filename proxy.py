@@ -109,27 +109,29 @@ def config_caddy():
     assert is_service_running("caddy"), "caddy 未正常启动！"
     logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
     time.sleep(wait)  # 等待 caddy 获取证书
-    if ln_caddy_cert():
+    try:
+        ln_caddy_cert()
         return
-    logging.info("未找到证书，尝试重新启动 caddy...")
+    except StopIteration:
+        logging.info("未找到证书，尝试重新启动 caddy...")
     rc_sudo("systemctl restart caddy")
     logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
     time.sleep(wait)
-    ln_caddy_cert() or error_exit("无法获取证书。")
+    try:
+        ln_caddy_cert()
+    except StopIteration:
+        error_exit("无法获取证书。")
 
 
-def ln_caddy_cert() -> bool:
+def ln_caddy_cert():
     """
     硬链接 caddy 证书到主目录
     """
     global cert_crt_ln, cert_key_ln
 
     certs_dir = Path("/var/lib/caddy")
-    try:
-        cert_crt = next(certs_dir.rglob(domain + ".crt"))
-        cert_key = next(certs_dir.rglob(domain + ".key"))
-    except StopIteration:
-        return False
+    cert_crt = next(certs_dir.rglob(domain + ".crt"))
+    cert_key = next(certs_dir.rglob(domain + ".key"))
 
     assert cert_crt.exists() and cert_key.exists(), "未找到证书，尝试重新生成"
     cert_crt_ln = mypath() / cert_crt.name
@@ -150,7 +152,6 @@ def ln_caddy_cert() -> bool:
     check_cert()
     mycache.simple_save("proxy.wait")
     logging.info("证书配置完成")
-    return True
 
 
 def config_hysteria():
