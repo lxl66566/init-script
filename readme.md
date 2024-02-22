@@ -11,13 +11,12 @@
 
 - 一键安装（我的）常用软件
 - 一键部署代理：目前支持 hysteria2, trojan-go, trojan
-  - 用我的博客伪装
+  - 用 caddy 反代我的博客伪装，自动更新证书
 - 其他不重要的功能
 
 作为 python 项目，它实现了：
 
-- 自动获取 github latest release 的二进制文件，筛选合适的并下载安装
-  - 感觉比 [lastversion](https://github.com/dvershinin/lastversion/blob/master/README-ZH-CN.md) 好用。
+- ~~自动获取 github latest release 的二进制文件，筛选合适的并下载安装~~ 已单独分离出一个项目：[bpm](https://github.com/lxl66566/bpm)
 - 日志与缓存系统
 
 ## 使用

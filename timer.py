@@ -54,10 +54,7 @@ def init():
 
 
 if __name__ == "__main__":
-    rc(
-        "git fetch origin main --filter=tree:0 && git reset --hard origin/main",
-        cwd=mypath() / "lxl66566.github.io",
-    )
+    update_blog()
     try:
         ln_caddy_cert()
     except Exception as e:

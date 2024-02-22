@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 
 
 # shell utils
@@ -70,7 +71,7 @@ def cut():
 
 
 def error_exit(msg: str):
-    print(colored(msg, "red"))
+    print(colored(msg, "red"), file=sys.stderr)
     exit(1)
 
 
@@ -126,6 +127,23 @@ def distro():
                 f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
             )
             error_exit("Unsupported OS.")
+
+
+def update_blog():
+    """
+    更新博客，如果不存在则自动创建
+    """
+    blog_path = mypath() / "lxl66566.github.io"
+    if not blog_path.exists():
+        rc(
+            "git clone https://github.com/lxl66566/lxl66566.github.io.git -b main --depth 1",
+            cwd=blog_path.parent,
+        )
+    else:
+        rc(
+            "git fetch origin main --filter=tree:0 && git reset --hard origin/main",
+            cwd=blog_path,
+        )
 
 
 @functools.lru_cache

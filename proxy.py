@@ -94,10 +94,7 @@ def config_caddy():
     """
     配置 caddy 及其证书
     """
-    (mypath() / "lxl66566.github.io").exists() or rc(
-        "git clone https://github.com/lxl66566/lxl66566.github.io.git -b main --depth 1",
-        cwd=mypath(),
-    )
+    update_blog()
 
     content = (config_path / "Caddyfile").read_text(encoding="utf-8")
     content = content.replace("/absx", str(mypath()))
