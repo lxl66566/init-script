@@ -1,37 +1,13 @@
-#!/usr/bin/env python
-#
-# My linux init script.
-#
-# https://github.com/lxl66566/init-script
-
-# ruff: noqa: F403, F405
-
 import logging
-import os
-import platform
 import shutil
 
 import afk
 import install
 import proxy
-import timer
-from mycache import *
-from utils import *
+import utils.mycache as mycache
 
-
-def init():
-    cut()
-    print("""init-script by https://github.com/lxl66566/init-script""")
-
-    if os.name != "posix" or platform.system() != "Linux":
-        error_exit("This script is only for Linux.")
-
-    logging.basicConfig(level=logging.DEBUG if debug_mode() else logging.INFO)
-
-    cut()
-    print(
-        f"运行环境：distro: {colored(distro(), 'green')}, pm: {colored(pm(), 'green')}, debug mode: {colored(str(True if debug_mode() else False), 'green')}"
-    )
+from .timer import init as timer_init
+from .utils import colored, cut, error_exit
 
 
 def ask() -> int:
@@ -67,12 +43,11 @@ def ask() -> int:
 
 
 if __name__ == "__main__":
-    init()
     match ask():
         case 1:
             install.init()
             proxy.init()
-            timer.init()
+            timer_init()
             afk.init()
         case 2:
             install.init()
@@ -92,7 +67,7 @@ if __name__ == "__main__":
         case 4:
             proxy.init()
         case 5:
-            timer.init()
+            timer_init()
         case 6:
             afk.init()
         case 7:

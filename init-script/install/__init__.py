@@ -1,37 +1,87 @@
 # ruff: noqa: F403, F405
 
 import logging
+from collections import OrderedDict
 from copy import copy
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 
-from mycache import *
-from ufcs import UFCS
-from utils import *
+from ..utils import *
+from ..utils.mycache import *
+from ..utils.ufcs import UFCS
+from .install_utils import *
 
-# 多发行版通用的安装列表
-my_install_list = [
-    "sudo",
-    "wget",
-    "curl",
-    "rsync",
-    "unzip",
-    "make",
-    "btop",
-    "lsof",
-    "zoxide",
-    "fzf",
-    "ncdu",
-    "tldr",
-    "trojan",
-    "podman",
-]
 TEMP_NAME = "initscript"
 TEMP_PATH = Path("/tmp") / TEMP_NAME
 
+packages_list = OrderedDict()
+
+
+def __add(self, package: "Package"):
+    self[package.name] = package
+
+
+packages_list.add = __add
+
+
+class Package:
+    """
+    `pm_name`: a function returns its name of current pm
+    `force`: force to use `install_fun`
+    `install_fun`: 不使用 pm_install 的自定义安装函数。如果返回 False，改为使用 pm_install 安装。
+    """
+
+    __slots__ = (
+        "name",
+        "pm_name",
+        "install",
+        "install_fun",
+        "post_install_fun",
+        "force",
+    )
+
+    def __init__(self, name: str, **kwargs) -> None:
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        assert hasattr(self, "name"), "package name is required"
+        self.install_fun = getattr(self, "install_fun", None)
+
+    def __lt__(self, other):
+        return self.name < other.name
+
+    @log_wrapper
+    @mycache_once(name="install")
+    def install(self):
+        name = getattr(self, "pm_name", lambda: self.name)()
+        ret = True  # 是否成功安装
+
+        for loop_time in range(2):
+            if not ret or (
+                not getattr(self, "force", False) and check_package_exists(name)
+            ):
+                pm_install(name)
+            else:
+                # 第一次循环可能来到 install_fun，但是（如果有）第二次循环一定是 pm_install
+                assert (
+                    loop_time == 0
+                ), "unexpect loop behavior. please contact with script author."
+                fun = getattr(self, "install_fun", None)
+                ret = (
+                    fun()
+                    if fun
+                    else error_exit(f"install_fun of `{self.name}` not found")
+                )
+            if ret or ret is None:
+                break
+
+        getattr(self, "post_install_fun", lambda: None)()
+
 
 def init():
+    """
+    init the package manager.
+    """
     match pm():
         case "p":
             assert exists("pacman")
@@ -60,6 +110,8 @@ def init():
             assert exists("yum"), "yum is not installed"
             assert is_root(), "You need to be root to install packages."
             rc_sudo("yum update -y")
+        case _:
+            error_exit("Unsupported package manager.")
 
     logging.info("init success")
     install_all()
@@ -102,7 +154,7 @@ def day(*args):
     )
 
 
-def basic_install(*args) -> bool:
+def pm_install(*args) -> bool:
     """
     basically install any packages by pm
     actually it's pacman + dnf + apt + yum 4 in 1
@@ -121,48 +173,11 @@ def cargo(*args):
     if exists("cargo"):
         rc_sudo(" ".join(("cargo install --locked", *args)))
     else:
-        install_cargo()
+        packages_list["cargo"].install()
 
 
-# do not use it, it cannot work.
-def lastversion(s: str, bin_name: str = ""):
-    """
-    install something via lastversion
-    :param s: github repo
-    :param bin_name: executable binary filename parse to install_from_file
-    """
-    if not exists("lastversion"):
-        install_python_lastversion()
-    assert exists("lastversion"), "lastversion not installed"
-    rc(f"lastversion {s} --assets -yv -d {TEMP_PATH}.tmp")
-    rc(f"tar -xaf {TEMP_NAME}.tmp --one-top-level={TEMP_NAME}", cwd="/tmp")
-    install_from_file(bin_name or s.rpartition("/")[-1])
-
-
-@log
-@mycache_once(name="install")
-def config_fish():
-    dotfile = mypath() / "dotfile"
-    branch = "archlinux"
-    if not dotfile.exists():
-        rc(
-            f"git clone https://github.com/lxl66566/dotfile.git -b {branch} --depth 1",
-            cwd=mypath(),
-        )
-    else:
-        rc(f"git fetch --all {quiet()} -f", cwd=dotfile)
-        rc(f"git reset --hard origin/{branch}", cwd=dotfile)
-    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/.config", cwd=mypath())
-
-
-@log
-@mycache_once(name="install")
-def install_my_list():
-    basic_install(*my_install_list)
-
-
-# because AUR has a lot of problems, i decide to install them manually instead of AUR
-@log
+# not used: i do not need AUR now.
+@log_wrapper
 @mycache_once(name="install")
 def install_paru():
     assert distro() == "a", "Only support Arch Linux"
@@ -179,7 +194,7 @@ def install_paru():
     rc("makepkg -si")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_cron():
     match pm():
@@ -187,11 +202,11 @@ def install_cron():
             pacman("cronie")
             rc_sudo("systemctl enable --now cronie")
         case _:
-            basic_install("cron")
+            pm_install("cron")
             rc_sudo("systemctl enable --now cron")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_base():
     """
@@ -216,14 +231,14 @@ def install_base():
             )
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_python_requests():
     match pm():
         case "p":
-            basic_install("python-requests")
+            pm_install("python-requests")
         case _:
-            basic_install("python3-requests")
+            pm_install("python3-requests")
 
 
 def install_from_file(bin_name: str):
@@ -340,7 +355,7 @@ def github(s: str):
     install_from_file(temp)
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_python_pip():
     match pm():
@@ -350,7 +365,7 @@ def install_python_pip():
             day("python3-pip")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_python_pipx():
     match pm():
@@ -361,7 +376,7 @@ def install_python_pipx():
     rc("fish_add_path ~/.local/bin")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_python_lastversion():
     if not exists("pipx"):
@@ -370,7 +385,7 @@ def install_python_lastversion():
     rc("pipx ensurepath")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_trojan_go():
     download_gh_release("p4gefau1t/trojan-go")
@@ -378,7 +393,7 @@ def install_trojan_go():
     rc("mkdir -p /etc/trojan-go")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_caddy():
     match pm():
@@ -393,20 +408,20 @@ def install_caddy():
                 "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list"
             )
             rc_sudo("apt update")
-            basic_install("caddy")
+            pm_install("caddy")
         case "y":
             day("yum-plugin-copr")
             rc_sudo("yum copr enable @caddy/caddy")
-            basic_install("caddy")
+            pm_install("caddy")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_hysteria():
     rc_sudo("curl -fsSL https://get.hy2.sh/ | bash")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_fd():
     match pm():
@@ -416,55 +431,67 @@ def install_fd():
             github("sharkdp/fd")
 
 
-@log
-@mycache_once(name="install")
-def install_mcfly():
-    match distro():
-        case "a":
-            pacman("mcfly")
-        case _:
-            rc_sudo(
-                "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
-            )
+packages_list.add(
+    Package(
+        "mcfly",
+        install_fun=lambda: rc_sudo(
+            "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
+        ),
+    )
+)
 
 
-@log
-@mycache_once(name="install")
 def install_zoxide():
-    match distro():
-        case "a":
-            pacman("zoxide")
-        case _:
-            if distro() == "d" and version() < 11:
-                rc_sudo(
-                    "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
-                )
-            else:
-                basic_install("zoxide")
+    if distro() == "d" and version() < 11:
+        rc_sudo(
+            "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
+        )
+        return True
+    else:
+        return False
 
 
-@log
-@mycache_once(name="install")
+packages_list.add(Package("zoxide", install_fun=install_zoxide, force=True))
+
+
 def install_fish():
-    match pm():
-        case "p":
-            pacman("fish")
-        case "a":
-            if distro() == "d" and version() < 11:
-                url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
-                package_name = rc(
-                    f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
-                    capture_output=True,
-                    text=True,
-                ).stdout.strip()
-                rc(f"wget {url}{package_name}", cwd="/tmp")
-                rc_sudo("dpkg -i " + package_name, cwd="/tmp")
-            else:
-                basic_install("fish")
+    if pm() == "a" and distro() == "d" and version() < 11:
+        url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
+        package_name = rc(
+            f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        rc(f"wget {url}{package_name}", cwd="/tmp")
+        rc_sudo("dpkg -i " + package_name, cwd="/tmp")
+        return True
+    else:
+        return False
+
+
+def post_install_fish():
     rc_sudo("chsh -s /usr/bin/fish")
+    dotfile = mypath() / "dotfile"
+    branch = "archlinux"
+    if not dotfile.exists():
+        rc(
+            f"git clone https://github.com/lxl66566/dotfile.git -b {branch} --depth 1",
+            cwd=mypath(),
+        )
+    else:
+        rc(f"git fetch --all {quiet()} -f", cwd=dotfile)
+        rc(f"git reset --hard origin/{branch}", cwd=dotfile)
+    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/.config", cwd=mypath())
 
 
-@log
+packages_list.add(
+    Package(
+        "fish", force=True, install_fun=install_fish, post_install_fun=post_install_fish
+    )
+)
+
+
+@log_wrapper
 @mycache_once(name="install")
 def install_starship():
     match distro():
@@ -474,16 +501,15 @@ def install_starship():
             rc_sudo("curl -sS https://starship.rs/install.sh | sh -s -- -y")
 
 
-@log
-@mycache_once(name="install")
-def install_cargo():
-    if exists("cargo"):
-        return
-    basic_install("cargo")
-    #         rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y")
+packages_list.add(
+    Package(
+        "cargo",
+        install_fun=lambda: rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y"),
+    )
+)
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_sd():
     match pm():
@@ -493,10 +519,10 @@ def install_sd():
             if (distro() == "d" and version() < 13) or distro() == "u":
                 github("chmln/sd")
             else:
-                basic_install("rust-sd")
+                pm_install("rust-sd")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_rg():
     match pm():
@@ -512,12 +538,12 @@ def install_rg():
                 )
                 rc_sudo("dpkg -i /tmp/ripgrep_13.0.0_amd64.deb")
             else:
-                basic_install("ripgrep")
+                pm_install("ripgrep")
         case _:
             github("BurntSushi/ripgrep")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_eza():
     match pm():
@@ -527,7 +553,7 @@ def install_eza():
             github("eza-community/eza")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_yazi():
     match distro():
@@ -545,7 +571,7 @@ def install_yazi():
             install_from_file("yazi")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_neovim():
     match distro():
@@ -560,7 +586,7 @@ def install_neovim():
             )
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_fastfetch():
     match pm():
@@ -570,7 +596,7 @@ def install_fastfetch():
             github("fastfetch-cli/fastfetch")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_zellij():
     match pm():
@@ -580,7 +606,7 @@ def install_zellij():
             github("zellij-org/zellij")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_bat():
     match pm():
@@ -590,7 +616,7 @@ def install_bat():
             github("sharkdp/bat")
 
 
-@log
+@log_wrapper
 @mycache_once(name="install")
 def install_xh():
     match pm():
@@ -600,8 +626,21 @@ def install_xh():
             github("ducaale/xh")
 
 
-# 函数映射和是否自动安装
-others = {
+install_list = {
+    "sudo": (),
+    "wget": (),
+    "curl": (),
+    "rsync": (),
+    "unzip": (),
+    "make": (),
+    "btop": (),
+    "lsof": (),
+    "zoxide": (),
+    "fzf": (),
+    "ncdu": (),
+    "tldr": (),
+    "trojan": (),
+    "podman": (),
     "python_requests": (install_python_requests, True),
     "fish": (install_fish, True),
     "base": (install_base, True),
@@ -634,7 +673,7 @@ def install_all():
     cut()
     logging.info(colored("starting to install ALL", "green"))
     install_my_list()
-    for p, auto in others.values():
+    for p, auto in filter(lambda x: len(x) >= 2, install_list.values()):
         if auto:
             p()
     cut()
@@ -650,7 +689,7 @@ def show_all_available_packages():
 
 def install_one(p: str, ignore_cache: bool = False):
     if p in my_install_list:
-        basic_install(p)
+        pm_install(p)
         return
     try:
         func = others.get(p)[0]

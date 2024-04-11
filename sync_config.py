@@ -1,8 +1,12 @@
 # ruff: noqa: F403, F405
 
 import json
+import subprocess
 
-from utils import rc
+
+def rc(s, **kwargs):
+    return subprocess.run(s, shell=True, check=True, **kwargs)
+
 
 vps_name = "jp"
 

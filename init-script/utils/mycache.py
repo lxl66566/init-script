@@ -5,7 +5,7 @@ import logging
 import pathlib
 import pickle
 
-from utils import colored, mypath
+from ..utils import colored, mypath
 
 
 class mycache:

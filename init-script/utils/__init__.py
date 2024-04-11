@@ -122,6 +122,8 @@ def distro():
             return "u"
         case "almalinux":
             return "al"
+        case "centos":
+            return "c"
         case _:
             logging.error(
                 f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
@@ -153,18 +155,20 @@ def version():
 
 @functools.lru_cache
 def pm():
-    if exists("pacman"):
-        return "p"
-    elif exists("apt"):
-        return "a"
-    elif exists("yum"):
-        return "y"
-    elif exists("dnf"):
-        return "d"
+    for p in ["pacman", "apt", "yum", "dnf"]:
+        if exists(p):
+            return p[0]
+
+
+@functools.lru_cache
+def pm_fullname():
+    for p in ["pacman", "apt", "yum", "dnf"]:
+        if p.startswith(pm()):
+            return p
 
 
 # logging
-def log(func):
+def log_wrapper(func):
     """
     It's a logging decorator, can print some messages in pre_running and post_running a function.
     """
