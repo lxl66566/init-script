@@ -29,6 +29,13 @@ def rc_sudo(s: str, **kwargs):
         return subprocess.run(f"sudo {s}", shell=True, check=True, **kwargs)
 
 
+def fish(s: str):
+    """
+    run fish command
+    """
+    rc(f"fish -c '{s}'")
+
+
 def exists(s: str) -> bool:
     if s.startswith("/") or s.startswith("~"):
         return pathlib.Path(s).exists()

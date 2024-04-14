@@ -14,12 +14,13 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from mycache import *
 from utils import *
+from var import domain
+
+from .utils.mycache import *
 
 PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
 
-domain = ""
 password = []
 cert_crt_ln = Path()
 cert_key_ln = Path()
@@ -215,6 +216,8 @@ def config_trojan_go():
     """
     配置 trojan-go
     """
+    Path("/etc/trojan-go").mkdir(parents=True, exist_ok=True)
+
     with (config_path / "trojan-go.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
