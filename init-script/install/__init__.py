@@ -6,24 +6,25 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Callable
 
-import var
-
-from ..proxy import config_caddy, config_hysteria, config_trojan_go
+from ..proxy import config_caddy, config_hysteria, config_trojan, config_trojan_go
 from ..utils import *
 from ..utils.mycache import *
+from ..var import ask, domain
 from .install_utils import *
 
 TEMP_NAME = "initscript"
 TEMP_PATH = Path("/tmp") / TEMP_NAME
 
-packages_list: OrderedDict["Package"] = OrderedDict()
+
+class PackageList(OrderedDict):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def add(self, package: "Package"):
+        self[package.name] = package
 
 
-def __add(self, package: "Package"):
-    self[package.name] = package
-
-
-packages_list.add = __add
+packages_list: PackageList["Package"] = PackageList()
 
 
 class Package:
@@ -39,13 +40,14 @@ class Package:
         "name",
         "pm_name",
         "level",
-        "install",
         "pre_install_fun",
         "install_fun",
         "post_install_fun",
     )
 
     def __init__(self, name: str, level: int = 0, **kwargs) -> None:
+        self.name = name
+        self.level = level
         for k, v in kwargs.items():
             setattr(self, k, v)
         assert hasattr(self, "name"), "package name is required"
@@ -58,28 +60,31 @@ class Package:
         """
         调用函数，如果函数有且只有一个参数，则将 self 作为参数传入，否则不传。
         """
+        assert callable(fun), "fun must be a callable"
         args = inspect.signature(fun).parameters
-        assert len(args) == 1, "自定义函数必须只有 0 或 1 个参数"
+        assert len(args) <= 1, "自定义函数必须只有 0 或 1 个参数，找到了 {} 个".format(
+            len(args)
+        )
         if len(args) == 1:
             return fun(self)
         else:
             return fun()
 
-    @mycache_once(name="install")
+    @install_once(name="install")
     def install(self):
         cut()
-        print(f"开始安装 {colored(self.name, "green")}...")
+        print(f"""开始安装 {colored(self.name, "green")}...""")
 
         name = getattr(self, "pm_name", lambda: self.name)()
         if not name:
             name = self.name
 
         pre_ret = self.call_with_param_0_or_1(
-            getattr(self, "pre_install_fun", lambda: None)
+            getattr(self, "pre_install_fun", lambda: False)
         )
 
         if pre_ret is None:
-            print(f"{colored(self.name, 'green')} 不满足安装条件，安装取消.")
+            print(f"""{colored(self.name, 'green')} 不满足安装条件，安装取消.""")
             return
 
         if not pre_ret and check_package_exists(name):
@@ -87,19 +92,20 @@ class Package:
         else:
             assert hasattr(
                 self, "install_fun"
-            ), "找不到自定义安装函数。这可能是您的平台不受支持，可以开 issue 报告"
-            fun = getattr(self, "install_fun")()
+            ), "跳过了系统包安装，并且找不到自定义安装函数。这可能是您的平台不受支持，或者包管理器版本过低，请开 issue 报告"
+            fun = getattr(self, "install_fun")
             self.call_with_param_0_or_1(fun)
 
         self.call_with_param_0_or_1(getattr(self, "post_install_fun", lambda: None))
 
-        print(f"{colored(self.name, "green")} 安装完成.")
+        print(f"""{colored(self.name, "green")} 安装完成.""")
 
 
 def init():
     """
     init the package manager.
     """
+    ask()
     match pm():
         case "p":
             assert exists("pacman")
@@ -109,6 +115,7 @@ def init():
         case "a":
             assert exists("apt")
             assert is_root(), "You need to be root to install packages."
+            rc_sudo("apt-get remove apt-listchanges -y", check=False)
             rc_sudo("apt update -y")
             rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
             if distro() == "d" and version() <= 11:
@@ -198,17 +205,24 @@ def pip(*args):
     """
     use pip to install packages.
     """
+
+    def rc_no_err(command):
+        return (
+            rc(command, stderr=subprocess.DEVNULL) if not debug_mode() else rc(command)
+        )
+
     if not exists("pip") and not exists("pip3"):
         packages_list["python-pip"].install()
 
     command = [sys.executable, "-m", "pip", "install"]
     command.extend(args)
+    command = " ".join(command)
     try:
-        subprocess.check_call(command)
+        rc_no_err(command)
     except subprocess.CalledProcessError:
         try:
-            command.append("--break-system-packages")
-            subprocess.check_call(command)
+            command += " --break-system-packages"
+            rc_no_err(command)
         except subprocess.CalledProcessError:
             error_exit("pip 安装失败，请检查系统")
 
@@ -221,11 +235,43 @@ def bpm(*args):
         packages_list["bpm"].install()
 
 
+def pre_install_proxy(need_caddy=True):
+    if not domain():
+        print("未设置域名，跳过安装")
+        return None
+    if need_caddy and not exists("caddy"):
+        packages_list["caddy"].install()
+    return False
+
+
+# region begin install
+
+
+# default packages.
+for i in [
+    "sudo",
+    "wget",
+    "curl",
+    "rsync",
+    "btop",
+    "lsof",
+    "ncdu",
+    "tldr",
+    "podman",
+    "fzf",
+    "make",
+]:
+    packages_list.add(Package(i, 2))
+
+
 def pre_install_paru():
-    assert distro() == "a", "Only support Arch Linux"
-    assert not is_root(), "installing paru must not be root"
-    assert exists("git"), "Git not found"
-    assert exists("makepkg"), "Makepkg not found"
+    try:
+        assert distro() == "a", "Only support Arch Linux"
+        assert not is_root(), "installing paru must not be root"
+        assert exists("git"), "Git not found"
+        assert exists("makepkg"), "Makepkg not found"
+    except AssertionError:
+        return None
     return True
 
 
@@ -246,6 +292,16 @@ packages_list.add(
         0,
         pre_install_fun=pre_install_paru,
         install_fun=install_paru,
+    )
+)
+
+
+packages_list.add(
+    Package(
+        "trojan",
+        level=1,
+        pre_install_fun=lambda: pre_install_proxy(True),
+        post_install_fun=config_trojan,
     )
 )
 
@@ -334,14 +390,16 @@ packages_list.add(
         "bpm",
         2,
         pre_install_fun=lambda: True,
-        install_fun=lambda: pip("bpm", "" if exists("bpm") else " -U"),
+        install_fun=lambda: pip(
+            "bin-package-manager", "" if not exists("bpm") else " -U"
+        ),
     )
 )
 packages_list.add(
     Package(
         "trojan-go",
         2,
-        pre_install_fun=lambda: True,
+        pre_install_fun=lambda: None if pre_install_proxy() is None else True,
         install_fun=lambda: bpm("https://github.com/p4gefau1t/trojan-go"),
         post_install_fun=config_trojan_go,
     )
@@ -349,7 +407,7 @@ packages_list.add(
 
 
 def pre_install_caddy():
-    if var.domain is None:
+    if domain() is None:
         return None
 
     if pm() == "a":
@@ -381,7 +439,7 @@ packages_list.add(
     Package(
         "hysteria2",
         2,
-        pre_install_fun=lambda: var.domain and True,
+        pre_install_fun=lambda: None if pre_install_proxy() is None else True,
         install_fun=lambda: rc_sudo("curl -fsSL https://get.hy2.sh/ | bash"),
         post_install_fun=config_hysteria,
     )
@@ -577,7 +635,8 @@ def install_all():
 def show_all_available_packages():
     print("可用软件包：")
     for name in packages_list.keys():
-        print(f"{name}, ")
+        print(name, end=", ")
+    print()
 
 
 def install_one(p: str, ignore_cache: bool = False):
@@ -585,7 +644,8 @@ def install_one(p: str, ignore_cache: bool = False):
         if ignore_cache:
             mycache("install").remove_set(p)
         packages_list[p].install()
-    except TypeError | KeyError:
+    except (TypeError, KeyError):
+        trace()
         error_exit(f"脚本未收录软件：{p}")
     except KeyboardInterrupt:
         error_exit("退出脚本")

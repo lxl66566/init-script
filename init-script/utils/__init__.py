@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import traceback
 
 
 # shell utils
@@ -14,7 +15,9 @@ def rc(s: str, **kwargs):
     rc means run with check.
     """
     logging.debug(colored(f"run: {s}", "yellow"))
-    return subprocess.run(s, shell=True, check=True, **kwargs)
+    kwargs.setdefault("check", True)
+    kwargs.setdefault("shell", True)
+    return subprocess.run(s, **kwargs)
 
 
 def rc_sudo(s: str, **kwargs):
@@ -26,7 +29,9 @@ def rc_sudo(s: str, **kwargs):
         return rc(s, **kwargs)
     else:
         logging.debug(colored(f"sudo run: {s}", "yellow"))
-        return subprocess.run(f"sudo {s}", shell=True, check=True, **kwargs)
+        kwargs.setdefault("check", True)
+        kwargs.setdefault("shell", True)
+        return subprocess.run(f"sudo {s}", **kwargs)
 
 
 def fish(s: str):
@@ -88,9 +93,16 @@ def mypath() -> pathlib.Path:
     return pathlib.Path(os.getenv("mypath") or "/absx")
 
 
-@functools.lru_cache
-def debug_mode():
-    return os.getenv("debug")
+def debug_mode() -> bool:
+    return logging.getLogger().isEnabledFor(logging.DEBUG)
+
+
+def trace():
+    """
+    Trace back only in debug mode.
+    """
+    if debug_mode():
+        traceback.print_exc()
 
 
 @functools.lru_cache
@@ -172,6 +184,16 @@ def pm_fullname():
     for p in ["pacman", "apt", "yum", "dnf"]:
         if p.startswith(pm()):
             return p
+
+
+def user_input(s: str):
+    try:
+        return input(s)
+    except KeyboardInterrupt:
+        print(colored("用户取消输入.", "yellow"))
+        exit(0)
+    except Exception as e:
+        raise e
 
 
 # logging

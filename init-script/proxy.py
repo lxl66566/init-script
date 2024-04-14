@@ -14,73 +14,14 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from utils import *
-from var import domain
-
+from .utils import *
 from .utils.mycache import *
+from .var import PROXY_PORT, domain, password
 
-PROXY_PORT = {"hysteria": "30000", "trojan-go": 40000, "trojan": 50000}
-
-password = []
 cert_crt_ln = Path()
 cert_key_ln = Path()
-wait = 10
+wait = int(mycache.simple_load("proxy.wait")) * 10
 config_path = mypath() / "init-script" / "config"
-
-
-def init():
-    assert exists("caddy"), "caddy is not installed"
-    assert exists("hysteria"), "hysteria is not installed"
-    assert exists("trojan"), "trojan is not installed"
-    assert exists("trojan-go"), "trojan-go is not installed"
-    assert exists("systemctl"), "systemctl is not configured"
-    cache()
-    if not domain or not password:
-        ask()
-    config_caddy()
-    config_hysteria()
-    config_trojan()
-    config_trojan_go()
-
-
-def cache():
-    """
-    从 cache 中读取 domain, password
-    """
-    global domain, password, wait
-
-    if mycache.simple_load("proxy.wait"):
-        wait = 1
-
-    cache = mycache("proxy").load()
-    if isinstance(cache, dict) and len(cache) == 2:
-        domain, password = (cache.get(k) for k in ("domain", "password"))
-        logging.info("successfully read domain and password from cache.")
-    else:
-        logging.info("cache is empty or corrupted.")
-
-
-def ask():
-    """
-    domain: str, password: list[str]
-    """
-
-    domain = input("domain: ").strip()
-
-    def ask_password():
-        password = []
-        while pswd := input("password（每行一个，空行结束）: ").strip():
-            if pswd:
-                password.append(pswd)
-            else:
-                break
-        return password
-
-    password = ask_password()
-
-    assert domain and password, "domain and password is empty"
-
-    mycache("proxy").save({"domain": domain, "password": password})
 
 
 def check_cert():
@@ -95,11 +36,12 @@ def config_caddy():
     """
     配置 caddy 及其证书
     """
+    assert exists("caddy"), "caddy 安装失败"
     update_blog()
 
     content = (config_path / "Caddyfile").read_text(encoding="utf-8")
     content = content.replace("/absx", str(mypath()))
-    content = content.replace("jp.absx.online", domain)
+    content = content.replace("jp.absx.online", domain())
 
     Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
@@ -128,8 +70,8 @@ def ln_caddy_cert():
     global cert_crt_ln, cert_key_ln
 
     certs_dir = Path("/var/lib/caddy")
-    cert_crt = next(certs_dir.rglob(domain + ".crt"))
-    cert_key = next(certs_dir.rglob(domain + ".key"))
+    cert_crt = next(certs_dir.rglob(domain() + ".crt"))
+    cert_key = next(certs_dir.rglob(domain() + ".key"))
 
     assert cert_crt.exists() and cert_key.exists(), "未找到证书，尝试重新生成"
     cert_crt_ln = mypath() / cert_crt.name
@@ -163,7 +105,7 @@ def config_hysteria():
     config["listen"] = ":" + str(PROXY_PORT["hysteria"])
     config["tls"]["cert"] = str(cert_crt_ln.absolute())
     config["tls"]["key"] = str(cert_key_ln.absolute())
-    config["auth"]["password"] = password[0]
+    config["auth"]["password"] = password()[0]
 
     with open("/etc/hysteria/hysteria.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -194,7 +136,7 @@ def config_trojan():
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan"])  # trojan-go 需要数字值
-    config["password"] = password
+    config["password"] = password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
 
@@ -222,10 +164,10 @@ def config_trojan_go():
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan-go"])
-    config["password"] = password
+    config["password"] = password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
-    config["ssl"]["sni"] = domain
+    config["ssl"]["sni"] = domain()
 
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -246,7 +188,9 @@ def show_all_status():
     """
 
     def show_one_status(service: str):
-        rc(f"systemctl status {service} --no-pager")
+        subprocess.run(
+            f"systemctl status {service} --no-pager", shell=True, check=False
+        )
 
     show_one_status("caddy")
     show_one_status("hysteria-server@hysteria")

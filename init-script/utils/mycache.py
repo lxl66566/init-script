@@ -1,11 +1,9 @@
 # cache utils
 import contextlib
-import functools
-import logging
 import pathlib
 import pickle
 
-from ..utils import colored, mypath
+from ..utils import mypath
 
 
 class mycache:
@@ -91,25 +89,3 @@ class mycache:
         set a bool value to False quickly
         """
         return (mycache.cache_dir() / name).unlink(missing_ok=True)
-
-
-def mycache_once(name: str):
-    """
-    It's a decorator to record a function into disk cache, so it would exec only once.
-    """
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            if mycache(name).in_set(func.__name__):
-                logging.warning(
-                    f"{colored(func.__name__, 'green')} has previously been executed, so it won't be executed this time. If you wish to execute it regardless, please delete the cache file in {mycache.cache_dir() / name}."
-                )
-                return
-            result = func(*args, **kwargs)
-            mycache(name).append_set(func.__name__)
-            return result
-
-        return wrapper
-
-    return decorator

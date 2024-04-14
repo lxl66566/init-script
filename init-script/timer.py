@@ -1,10 +1,9 @@
 # ruff: noqa: F403, F405
 import logging
 from pathlib import Path
-from subprocess import run
 
-from proxy import ln_caddy_cert
-from utils import *
+from .proxy import ln_caddy_cert
+from .utils import *
 
 daily = Path("/etc/cron.daily/init-script")
 
@@ -34,22 +33,13 @@ def add_task_daily(s: str):
 
 def init():
     assert exists("crontab")
-    python_exe = (
-        run("which python3", shell=True, capture_output=True)
-        .stdout.decode("utf-8")
-        .strip()
-    )
-    if not python_exe:
-        python_exe = (
-            run("which python", shell=True, capture_output=True)
-            .stdout.decode("utf-8")
-            .strip()
-        )
-    assert python_exe, "Python path not found"
-    task = f"#!/bin/bash\n{python_exe} {Path(__file__).resolve()}\nexit 0\n"
+    task = f"""#!/bin/bash
+cd {(mypath() / "init-script").absolute()}
+{sys.executable} -m init-script.timer
+exit 0
+"""
     add_task_daily(task)
     assert daily.exists(), "write daily cron script failed"
-    daily.chmod(0o755)
     logging.info(f"Added daily cron task: `{task}`")
 
 
