@@ -8,6 +8,8 @@
 > 后来写着写着一发不可收拾，成为我的 python 学习项目了。
 > 之后经历了一次大改动，模块化，函数式变为了面向对象，学习了包管理器设计思想。
 
+同时这个项目也是 [bpm](https://github.com/lxl66566/bpm) 的原身和灵感来源。
+
 </details>
 
 ## 介绍
@@ -15,14 +17,9 @@
 这是我用于一键配置服务器的脚本，它可以：
 
 - 一键安装（我的）常用软件
-- 一键部署代理：目前支持 hysteria2, trojan-go, trojan
+- 一键部署代理：目前支持 hysteria2, trojan-go, trojan, openppp2
   - 用 caddy 反代我的博客伪装，自动更新证书
 - 其他不重要的功能
-
-作为 python 项目，它实现了：
-
-- ~~自动获取 github latest release 的二进制文件，筛选合适的并下载安装~~ 已单独分离出一个项目：[bpm](https://github.com/lxl66566/bpm)
-- pickle 简单缓存
 
 ## 使用
 
@@ -44,6 +41,19 @@
   ```sh
   debug=1 curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
   ```
+
+如果你需要修改源码后运行，请在项目目录下执行 `python3 -m init-script`。
+
+### 代理
+
+这里部署的代理大部分需要域名，请自行解析。代理的[默认开启端口](https://github.com/lxl66566/init-script/blob/c1cb3c466a5719f7e2dd8d344b2dc12b5a478cd0/init-script/var.py#L15-L20)：
+
+```json
+"openppp2": 29777,
+"hysteria": 30000,
+"trojan-go": 40000,
+"trojan": 50000,
+```
 
 ## QA
 

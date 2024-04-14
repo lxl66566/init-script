@@ -46,7 +46,7 @@ def install_once(name: str):
             func_fullname = self.name
             if mycache(name).in_set(func_fullname):
                 log.warning(
-                    f"{colored(func_fullname, 'green')} has previously been executed, so it won't be executed this time. If you wish to execute it regardless, please delete the cache file in {mycache.cache_dir() / name}."
+                    f"{colored(func_fullname, 'green')} has been installed, skip installation. If you wish to force reinstall it, please use `-y` or delete the cache file in `{mycache.cache_dir() / name}`."
                 )
                 return
             result = func(self, *args, **kwargs)

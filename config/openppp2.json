@@ -1,0 +1,66 @@
+﻿{
+  "concurrent": 1,
+  "key": {
+    "kf": 154543927,
+    "kx": 128,
+    "kl": 10,
+    "kh": 12,
+    "protocol": "aes-128-cfb",
+    "protocol-key": "N6HMzdUs7IUnYHwq",
+    "transport": "aes-256-cfb",
+    "transport-key": "HWFweXu2g5RVMEpy",
+    "masked": false,
+    "plaintext": false,
+    "delta-encode": false,
+    "shuffle-data": false
+  },
+  "ip": {
+    "public": "::",
+    "interface": "::"
+  },
+  "tcp": {
+    "inactive": {
+      "timeout": 300
+    },
+    "connect": {
+      "timeout": 5
+    },
+    "listen": {
+      "port": 29777
+    },
+    "turbo": true,
+    "backlog": 511,
+    "fast-open": true
+  },
+  "udp": {
+    "inactive": {
+      "timeout": 72
+    },
+    "dns": {
+      "timeout": 4,
+      "redirect": "0.0.0.0"
+    },
+    "listen": {
+      "port": 29777
+    }
+  },
+  "server": {
+    "log": "/dev/null",
+    "node": 1
+  },
+  "client": {
+    "guid": "{F4569208-BB45-4DEB-B115-0FEA1D91B85B}",
+    "server": "ppp://192.168.0.24:20000/",
+    "bandwidth": 10000,
+    "reconnections": {
+      "timeout": 5
+    },
+    "paper-airplane": {
+      "tcp": true
+    },
+    "http-proxy": {
+      "bind": "192.168.0.24",
+      "port": 8080
+    }
+  }
+}

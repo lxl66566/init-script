@@ -2,12 +2,12 @@
 import logging
 import shutil
 
+from .install import ask_install_one
 from .install import init as install_init
-from .install import install_one, show_all_available_packages
 from .lib.PyConsoleMenu import SelectorMenu
 from .proxy import show_all_status
 from .timer import init as timer_init
-from .utils import error_exit, user_input
+from .utils import error_exit
 from .utils.mycache import mycache
 
 options = """
@@ -30,18 +30,7 @@ match ans.index:
     case 1:
         install_init()
     case 2:
-        show_all_available_packages()
-        temp = (
-            user_input("请输入安装软件名，以空格隔开，输入 -y 无视缓存安装：")
-            .strip()
-            .split(" ")
-        )
-        flag = False
-        if "-y" in temp:
-            temp.remove("-y")
-            flag = True
-        for i in temp:
-            install_one(i, flag)
+        ask_install_one()
     case 3:
         timer_init()
     case 4:

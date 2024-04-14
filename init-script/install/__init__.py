@@ -6,7 +6,13 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Callable
 
-from ..proxy import config_caddy, config_hysteria, config_trojan, config_trojan_go
+from ..proxy import (
+    config_caddy,
+    config_hysteria,
+    config_openppp2,
+    config_trojan,
+    config_trojan_go,
+)
 from ..utils import *
 from ..utils.mycache import *
 from ..var import ask, domain
@@ -548,7 +554,7 @@ packages_list.add(
         "ripgrep",
         level=2,
         pre_install_fun=lambda: pm() != "p",
-        install_fun=lambda: bpm("https://github.com/BurntSushi/ripgrep"),
+        install_fun=lambda: bpm("https://github.com/BurntSushi/ripgrep", "-b rg"),
     )
 )
 
@@ -623,6 +629,21 @@ packages_list.add(
 )
 
 
+packages_list.add(
+    Package(
+        "openppp2",
+        level=2,
+        pre_install_fun=lambda: True,
+        install_fun=lambda: bpm(
+            "https://github.com/liulilittle/openppp2",
+            "-b ppp",
+            "--filter uring" if kernel_ver() > 5.10 else "",
+        ),
+        post_install_fun=config_openppp2,
+    )
+)
+
+
 def install_all():
     cut()
     logging.info(colored("starting to install ALL", "green"))
@@ -633,10 +654,17 @@ def install_all():
 
 
 def show_all_available_packages():
-    print("可用软件包：")
-    for name in packages_list.keys():
-        print(name, end=", ")
-    print()
+    def greend(iter):
+        return map(lambda x: colored(x, "green"), iter)
+
+    print(
+        "可用软件包：",
+        ", ".join(greend(packages_list.keys())),
+    )
+    print(
+        "其中，代理为：",
+        ", ".join(greend(("hysteria2", "openppp2", "trojan", "trojan-go"))),
+    )
 
 
 def install_one(p: str, ignore_cache: bool = False):
@@ -649,3 +677,20 @@ def install_one(p: str, ignore_cache: bool = False):
         error_exit(f"脚本未收录软件：{p}")
     except KeyboardInterrupt:
         error_exit("退出脚本")
+
+
+def ask_install_one():
+    show_all_available_packages()
+    temp = (
+        user_input("请输入安装软件名，以空格隔开，输入 -y 无视缓存安装：")
+        .strip()
+        .split(" ")
+    )
+    if not temp or not temp[0]:
+        error_exit("未输入内容")
+    flag = False
+    if "-y" in temp:
+        temp.remove("-y")
+        flag = True
+    for i in temp:
+        install_one(i, flag)

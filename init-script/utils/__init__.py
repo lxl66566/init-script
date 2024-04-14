@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -148,6 +149,32 @@ def distro():
                 f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
             )
             error_exit("Unsupported OS.")
+
+
+@functools.lru_cache
+def kernel_ver():
+    _tuple = platform.release().split("-", 1)[0].split(".", 2)
+    return int(_tuple[0]) + float(_tuple[1]) / 100
+
+
+@functools.lru_cache
+def ip():
+    """
+    ref: https://stackoverflow.com/a/28950776/18929691
+    """
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # doesn't even have to be reachable
+        s.connect(("10.254.254.254", 1))
+        IP = str(s.getsockname()[0])
+    except Exception:
+        IP = "127.0.0.1"
+    finally:
+        s.close()
+    return IP
 
 
 def update_blog():

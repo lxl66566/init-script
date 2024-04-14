@@ -10,6 +10,7 @@
 
 import json
 import logging
+import multiprocessing
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -182,6 +183,45 @@ def config_trojan_go():
     logging.info("trojan-go 服务启动成功")
 
 
+def config_openppp2():
+    """
+    配置 openppp
+    """
+    assert exists("/usr/bin/ppp"), "openppp2 未安装或安装失败"
+
+    ppp_json = config_path / "openppp2.json"
+    assert ppp_json.exists(), "openppp2.json 配置文件不存在"
+
+    config = json.load(ppp_json.open("r", encoding="utf_8_sig"))
+    config["concurrent"] = multiprocessing.cpu_count()
+    config["tcp"]["listen"]["port"] = int(PROXY_PORT["openppp2"])
+    config["udp"]["listen"]["port"] = int(PROXY_PORT["openppp2"])
+    json.dump(config, ppp_json.open("w", encoding="utf_8_sig"), indent=2)
+
+    service = f"""
+[Unit]
+Description=openppp tui server
+After=network.target nss-lookup.target
+
+[Service]
+ExecStart=/usr/bin/ppp --mode=server --config={ppp_json.absolute()}
+StandardOutput=null
+StandardError=journal
+# Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+"""
+    service_ppp = Path("/usr/lib/systemd/system/openppp2.service")
+    service_ppp.write_text(service, encoding="utf-8")
+    service_ppp.chmod(0o644)
+
+    rc_sudo("systemctl daemon-reload")
+    rc_sudo("systemctl enable --now openppp2")
+    assert is_service_running("openppp2"), "openppp2 服务启动失败"
+    logging.info("openppp2 服务启动成功")
+
+
 def show_all_status():
     """
     展示服务运行状态
@@ -192,7 +232,9 @@ def show_all_status():
             f"systemctl status {service} --no-pager", shell=True, check=False
         )
 
-    show_one_status("caddy")
-    show_one_status("hysteria-server@hysteria")
-    show_one_status("trojan-go")
-    show_one_status("trojan")
+    if domain():
+        show_one_status("caddy")
+        show_one_status("hysteria-server@hysteria")
+        show_one_status("trojan-go")
+        show_one_status("trojan")
+    show_one_status("openppp2")
