@@ -142,7 +142,7 @@ def get_os_info() -> dict:
                 os_info[key.strip()] = value.strip().strip('"')
         return os_info
 
-    files = ["/etc/os-release"]  # , "/etc/redhat-release", "/etc/lsb-release"
+    files = ["/etc/os-release", "/etc/redhat-release", "/etc/lsb-release"]
     for file in files:
         with contextlib.suppress(FileNotFoundError):
             with open(file, "r") as f:
@@ -233,16 +233,6 @@ def pm_fullname():
     for p in ["pacman", "apt", "yum", "dnf"]:
         if p.startswith(pm()):
             return p
-
-
-def user_input(s: str):
-    try:
-        return input(s)
-    except KeyboardInterrupt:
-        print(colored("用户取消输入.", "yellow"))
-        exit(0)
-    except Exception as e:
-        raise e
 
 
 def log_wrapper(func):

@@ -25,9 +25,8 @@
 
 > [!CAUTION]  
 > **脚本仅支持 ArchLinux, Debian, Ubuntu; python >= 3.10。** ~~想过适配 yum 系，系统也上了，结果发现要啥没啥，太累了。。我何必受这个罪呢。~~  
-> **脚本需要在 root 下运行；使用脚本前请务必了解风险。本人不承担使用脚本造成的任何后果。**
-
-目前经过测试的平台有：_ArchLinux_, _Debian 12_, _Ubuntu 22.04_
+> **脚本需要在 root 下运行；使用脚本前请务必了解风险。本人不承担使用脚本造成的任何后果。**  
+> 目前经过测试的平台有：_ArchLinux_, _Debian 12_, _Ubuntu 22.04_
 
 - 默认
   ```sh
@@ -37,12 +36,19 @@
   ```sh
   mypath=/mypath curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
   ```
-- debug 模式（显示详细信息）
-  ```sh
-  debug=1 curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
-  ```
 
-如果你需要修改源码后运行，请在项目目录下执行 `python3 -m init-script`。
+其中，`mypath=/mypath` 修改了环境变量。类似地，您可以修改环境变量使程序拥有不同的运行表现：
+
+```sh
+debug=1         # debug 模式（显示详细信息）
+DISABLE_TUI=1   # 使用传统面板，而非 tui 面板。如果 tui 面板在您的系统上工作异常，请使用此选项。
+```
+
+### 自定义
+
+一部分配置选项放在 `init-script/var.py`，您可以自行更改配置。
+
+如果您需要修改源码后运行，请在项目目录下执行 `python3 -m init-script`。
 
 ### 代理
 
@@ -54,6 +60,8 @@
 "trojan-go": 40000,
 "trojan": 50000,
 ```
+
+其中，只有 `openppp2` 无需域名。若您未输入域名，其他代理将不会被安装&部署。
 
 ## QA
 

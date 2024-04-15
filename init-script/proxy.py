@@ -17,11 +17,11 @@ from pathlib import Path
 
 from .utils import *
 from .utils.mycache import *
-from .var import PROXY_PORT, domain, password
+from .var import GET_CERT_DEFAULT_WAIT, GET_CERT_MAX_RETRY, PROXY_PORT, domain, password
 
 cert_crt_ln = Path()
 cert_key_ln = Path()
-wait = int(mycache.simple_load("proxy.wait")) * 10
+wait = int(mycache.simple_load("proxy.wait")) * GET_CERT_DEFAULT_WAIT
 config_path = mypath() / "init-script" / "config"
 
 
@@ -48,20 +48,16 @@ def config_caddy():
     logging.info("Caddyfile has been written.")
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
-    logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
-    time.sleep(wait)  # 等待 caddy 获取证书
-    try:
-        ln_caddy_cert()
-        return
-    except StopIteration:
-        logging.info("未找到证书，尝试重新启动 caddy...")
-    rc_sudo("systemctl restart caddy")
-    logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
-    time.sleep(wait)
-    try:
-        ln_caddy_cert()
-    except StopIteration:
-        error_exit("无法获取证书。")
+    for _ in range(GET_CERT_MAX_RETRY):  # 重试次数
+        logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
+        time.sleep(wait)  # 等待 caddy 获取证书
+        try:
+            ln_caddy_cert()
+            return
+        except StopIteration:
+            logging.info("未找到证书，尝试重新启动 caddy...")
+            rc_sudo("systemctl restart caddy")
+    error_exit("无法获取证书。")
 
 
 def ln_caddy_cert():

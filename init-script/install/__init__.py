@@ -13,6 +13,7 @@ from ..proxy import (
     config_trojan_go,
 )
 from ..utils import *
+from ..utils.input import user_input
 from ..utils.mycache import *
 from ..var import ask, domain
 from .fish import fish_add_config, install_fish_on_debian, post_install_fish
@@ -492,7 +493,7 @@ packages_list.add(
 packages_list.add(
     Package(
         "cargo",
-        level=2,
+        level=0,
         install_fun=lambda: rc_sudo("curl https://sh.rustup.rs -sSf | sh -s -- -y"),
     )
 )
@@ -608,7 +609,8 @@ packages_list.add(
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/atuinsh/atuin"),
         post_install_fun=lambda: (
-            rc("atuin import auto"),
+            # ignore Error: Could not find history file "/root/.bash_history". Try setting $HISTFILE
+            rc("atuin import auto", check=False),
             fish_add_config("atuin init fish | source"),
         ),
     )

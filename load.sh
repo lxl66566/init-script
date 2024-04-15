@@ -17,6 +17,10 @@ error_exit() {
     exit 1
 }
 
+run_script() {
+    python3 -m init-script "$@"
+}
+
 default="/absx"
 if [ -z "$mypath" ]; then
     export mypath=$default
@@ -30,7 +34,7 @@ printf "安装主目录：$mypath\n"
 lockfile=$mypath"/.lock_for_load" # 避免二次 clone 的问题
 if [ -e $lockfile ]; then
     cd $mypath"/init-script"
-    python3 init.py
+    run_script
     exit 0
 fi
 
@@ -39,6 +43,8 @@ packages="git python3"
 if command -v pacman &>/dev/null; then
     pacman -Syu --needed --noconfirm python git
     elif command -v apt &>/dev/null; then
+    export DEBIAN_FRONTEND=noninteractive
+    export NEEDRESTART_MODE=a
     apt update -y
     apt install -qy $packages
     elif command -v yum &>/dev/null; then
@@ -59,4 +65,4 @@ git clone https://github.com/lxl66566/init-script.git --filter=tree:0 || error_e
 touch $lockfile
 chmod 777 $mypath -R || error_exit "授权失败"
 cd init-script
-python3 -m init-script
+run_script

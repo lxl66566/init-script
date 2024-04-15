@@ -5,21 +5,29 @@
 from pathlib import Path
 from typing import Optional
 
-from .utils import user_input
+from .utils import colored
+from .utils.input import user_input
 from .utils.mycache import mycache
 
-_cache: dict = mycache("var").load() or {}
+# 在这里更改自定义配置
 
-_domain: Optional[str] = _cache.get("domain")
-_password: list[str] = _cache.get("password") or []
-
+# 默认代理端口
 PROXY_PORT = {
     "openppp2": 29777,
     "hysteria": 30000,
     "trojan-go": 40000,
     "trojan": 50000,
 }
+# fishshell 配置默认路径
 FISH_CONFIG_FILE_PATH = Path.home() / ".config" / "fish" / "config.fish"
+GET_CERT_MAX_RETRY = 4  # 获取证书的最大重试次数
+GET_CERT_DEFAULT_WAIT = 20  # 获取证书的默认等待时间（秒）
+
+# 自定义配置区域结束，不要更改其他地方
+
+_cache: dict = mycache("var").load() or {}
+_domain: Optional[str] = _cache.get("domain")
+_password: list[str] = _cache.get("password") or []
 
 
 def save():
@@ -32,7 +40,9 @@ def ask():
     global _domain, _password
 
     if not _domain:
-        _domain = user_input("请输入本机域名，若留空则跳过所有需要 SSL 的代理部署: ")
+        _domain = user_input(
+            f"请输入本机域名，若留空则跳过所有{colored('需要 SSL 的代理', 'yellow')}部署: "
+        )
     if not _domain:
         return
     if not _password:

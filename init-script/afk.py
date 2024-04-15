@@ -1,7 +1,6 @@
 # this script was only tested on podman.
 # ruff: noqa: F403, F405
 import logging as log
-import subprocess
 
 from .utils import error_exit, exists, rc, rc_sudo
 
@@ -44,9 +43,14 @@ def init():
 
 def remove():
     check_container()
-    result = rc(
-        f"{prefix} ps -q", stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    result = (
+        rc(
+            f"{prefix} ps -q",
+            capture_output=True,
+        )
+        .stdout.decode()
+        .split()
     )
-    for name in result.split():
+    for name in result:
         rc(f"{prefix} kill {name}")
         rc(f"{prefix} rm {name}")
