@@ -3,7 +3,6 @@
 import inspect
 import logging
 from collections import OrderedDict
-from pathlib import Path
 from typing import Callable
 
 from ..proxy import (
@@ -16,10 +15,8 @@ from ..proxy import (
 from ..utils import *
 from ..utils.mycache import *
 from ..var import ask, domain
+from .fish import fish_add_config, install_fish_on_debian, post_install_fish
 from .install_utils import *
-
-TEMP_NAME = "initscript"
-TEMP_PATH = Path("/tmp") / TEMP_NAME
 
 
 class PackageList(OrderedDict):
@@ -148,16 +145,6 @@ def init():
     install_all()
 
 
-def quiet() -> str:
-    """
-    do you need quiet?
-    """
-    if debug_mode():
-        return ""
-    else:
-        return "-q"
-
-
 def pacman(*args):
     rc_sudo(" ".join(("pacman", "-S", "--needed", "--noconfirm", *args)))
 
@@ -236,7 +223,7 @@ def pip(*args):
 def bpm(*args):
     "use bpm to install"
     if exists("bpm"):
-        rc_sudo(" ".join(("bpm", "i", "-q", *args)))
+        rc_sudo(" ".join(("bpm", "i", quiet(), *args)))
     else:
         packages_list["bpm"].install()
 
@@ -468,6 +455,7 @@ packages_list.add(
         install_fun=lambda: rc_sudo(
             "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
         ),
+        post_install_fun=lambda: fish_add_config("mcfly init fish | source"),
     )
 )
 
@@ -480,34 +468,9 @@ packages_list.add(
         install_fun=lambda: rc_sudo(
             "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
         ),
+        post_install_fun=lambda: fish_add_config("zoxide init fish | source"),
     )
 )
-
-
-def install_fish():
-    url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
-    package_name = rc(
-        f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    rc(f"wget {url}{package_name}", cwd="/tmp")
-    rc_sudo("dpkg -i " + package_name, cwd="/tmp")
-
-
-def post_install_fish():
-    rc_sudo("chsh -s /usr/bin/fish")
-    dotfile = mypath() / "dotfile"
-    branch = "archlinux"
-    if not dotfile.exists():
-        rc(
-            f"git clone https://github.com/lxl66566/dotfile.git -b {branch} --depth 1",
-            cwd=mypath(),
-        )
-    else:
-        rc(f"git fetch --all {quiet()} -f", cwd=dotfile)
-        rc(f"git reset --hard origin/{branch}", cwd=dotfile)
-    rc(f"cp -rf {dotfile}/home/absolutex/.config/fish ~/.config", cwd=mypath())
 
 
 packages_list.add(
@@ -515,7 +478,7 @@ packages_list.add(
         "fish",
         2,
         pre_install_fun=lambda: distro() == "d" and version() < 11,
-        install_fun=install_fish,
+        install_fun=install_fish_on_debian,
         post_install_fun=post_install_fish,
     )
 )
@@ -528,6 +491,7 @@ packages_list.add(
         install_fun=lambda: rc_sudo(
             "curl -sS https://starship.rs/install.sh | sh -s -- -y"
         ),
+        post_install_fun=lambda: fish_add_config("starship init fish | source"),
     )
 )
 
@@ -643,6 +607,19 @@ packages_list.add(
     )
 )
 
+packages_list.add(
+    Package(
+        "atuin",
+        level=2,
+        pre_install_fun=lambda: pm() != "p",
+        install_fun=lambda: bpm("https://github.com/atuinsh/atuin"),
+        post_install_fun=lambda: (
+            rc("atuin import auto"),
+            fish_add_config("atuin init fish | source"),
+        ),
+    )
+)
+
 
 def install_all():
     cut()
@@ -654,16 +631,17 @@ def install_all():
 
 
 def show_all_available_packages():
-    def greend(iter):
-        return map(lambda x: colored(x, "green"), iter)
+    def _colored_s(iter):
+        return map(
+            lambda x: colored(x, "red")
+            if x in ("hysteria2", "openppp2", "trojan", "trojan-go")
+            else colored(x, "green"),
+            iter,
+        )
 
     print(
-        "可用软件包：",
-        ", ".join(greend(packages_list.keys())),
-    )
-    print(
-        "其中，代理为：",
-        ", ".join(greend(("hysteria2", "openppp2", "trojan", "trojan-go"))),
+        colored("可用软件包", "green") + colored("标红为代理软件：", "red"),
+        ", ".join(_colored_s(packages_list.keys())),
     )
 
 

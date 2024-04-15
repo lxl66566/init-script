@@ -98,6 +98,16 @@ def debug_mode() -> bool:
     return logging.getLogger().isEnabledFor(logging.DEBUG)
 
 
+def quiet() -> str:
+    """
+    do you need quiet?
+    """
+    if debug_mode():
+        return ""
+    else:
+        return "-q"
+
+
 def trace():
     """
     Trace back only in debug mode.

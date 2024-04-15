@@ -2,6 +2,7 @@
 包含一些需要使用的变量。
 """
 
+from pathlib import Path
 from typing import Optional
 
 from .utils import user_input
@@ -18,6 +19,7 @@ PROXY_PORT = {
     "trojan-go": 40000,
     "trojan": 50000,
 }
+FISH_CONFIG_FILE_PATH = Path.home() / ".config" / "fish" / "config.fish"
 
 
 def save():
