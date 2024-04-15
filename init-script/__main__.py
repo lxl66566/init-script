@@ -8,7 +8,7 @@ from .proxy import show_all_status
 from .timer import init as timer_init
 from .utils import error_exit
 from .utils.input import get_user_choice
-from .utils.mycache import mycache
+from .utils.mycache import cache_dir
 
 options = """
 ALL（所有软件 + 代理 + 定时）
@@ -49,9 +49,9 @@ match get_user_choice(options):
         show_all_status()
     case 6:
         shutil.rmtree(
-            mycache.cache_dir(),
+            cache_dir(),
             onerror=lambda *args: error_exit(
-                f"清除缓存失败，请手动删除{str(mycache.cache_dir().absolute())}"
+                f"清除缓存失败，请手动删除{str(cache_dir().absolute())}"
             ),
         )
         logging.info("已清除脚本缓存。")

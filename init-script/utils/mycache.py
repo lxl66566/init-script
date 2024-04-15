@@ -6,14 +6,18 @@ import pickle
 from ..utils import mypath
 
 
-class mycache:
+def cache_dir() -> pathlib.Path:
+    return (mypath() / ".cache").resolve()
+
+
+class BaseCache:
     """
-    缓存系统
+    cache any object
     """
 
     def __init__(self, name: str) -> None:
-        self.cache_dir().mkdir(mode=0o777, exist_ok=True)
-        self.file = self.cache_dir() / name
+        cache_dir().mkdir(mode=0o777, exist_ok=True)
+        self.file = cache_dir() / name
 
     def load(self) -> any:
         """
@@ -30,6 +34,15 @@ class mycache:
         """
         with self.file.open("wb") as f:
             pickle.dump(data, f)
+
+
+class SetCache(BaseCache):
+    """
+    a set cache
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
 
     def in_set(self, data: any) -> bool:
         """
@@ -65,27 +78,29 @@ class mycache:
             temp.remove(data)
         self.save(temp)
 
-    @staticmethod
-    def cache_dir() -> pathlib.Path:
-        return (mypath() / ".cache").resolve()
+
+class SimpleCache:
+    """
+    a simple 01 cache, only cache a bool value
+    """
 
     @staticmethod
-    def simple_save(name: str) -> None:
+    def save(name: str) -> None:
         """
         set a bool value to True quickly
         """
-        (mycache.cache_dir() / name).touch(0o777, exist_ok=True)
+        (cache_dir() / name).touch(0o777, exist_ok=True)
 
     @staticmethod
-    def simple_load(name: str) -> bool:
+    def load(name: str) -> bool:
         """
         load a bool value quickly
         """
-        return (mycache.cache_dir() / name).exists()
+        return (cache_dir() / name).exists()
 
     @staticmethod
-    def simple_remove(name: str) -> bool:
+    def remove(name: str) -> bool:
         """
         set a bool value to False quickly
         """
-        return (mycache.cache_dir() / name).unlink(missing_ok=True)
+        return (cache_dir() / name).unlink(missing_ok=True)

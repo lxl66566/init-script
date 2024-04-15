@@ -14,7 +14,7 @@ from ..proxy import (
 )
 from ..utils import *
 from ..utils.input import user_input
-from ..utils.mycache import *
+from ..utils.mycache import SetCache
 from ..var import ask, domain
 from .fish import fish_add_config, install_fish_on_debian, post_install_fish
 from .install_utils import *
@@ -47,11 +47,13 @@ class Package:
         "pre_install_fun",
         "install_fun",
         "post_install_fun",
+        "depends",
     )
 
     def __init__(self, name: str, level: int = 0, **kwargs) -> None:
         self.name = name
         self.level = level
+        self.depends = list()
         for k, v in kwargs.items():
             setattr(self, k, v)
         assert hasattr(self, "name"), "package name is required"
@@ -60,7 +62,7 @@ class Package:
     def __lt__(self, other: "Package"):
         return self.name < other.name
 
-    def call_with_param_0_or_1(self, fun: Callable):
+    def _call_with_param_0_or_1(self, fun: Callable):
         """
         调用函数，如果函数有且只有一个参数，则将 self 作为参数传入，否则不传。
         """
@@ -76,6 +78,16 @@ class Package:
 
     @install_once(name="install")
     def install(self):
+        # install dependencies
+        for i in self.depends:
+            if (p := packages_list.get(i)) and not SetCache("package_installed").in_set(
+                i
+            ):
+                p.install()
+            else:
+                log.error(f"安装 {self.name} 时出错：")
+                error_exit(f"找不到依赖包 {i}，请开启 issue 报告")
+
         cut()
         print(f"""开始安装 {colored(self.name, "green")}...""")
 
@@ -83,12 +95,12 @@ class Package:
         if not name:
             name = self.name
 
-        pre_ret = self.call_with_param_0_or_1(
+        pre_ret = self._call_with_param_0_or_1(
             getattr(self, "pre_install_fun", lambda: False)
         )
 
         if pre_ret is None:
-            print(f"""{colored(self.name, 'green')} 不满足安装条件，安装取消.""")
+            log.warning(f"""{colored(self.name, 'yellow')} 不满足安装条件，安装取消.""")
             return
 
         if not pre_ret and check_package_exists(name):
@@ -98,10 +110,11 @@ class Package:
                 self, "install_fun"
             ), "跳过了系统包安装，并且找不到自定义安装函数。这可能是您的平台不受支持，或者包管理器版本过低，请开 issue 报告"
             fun = getattr(self, "install_fun")
-            self.call_with_param_0_or_1(fun)
+            self._call_with_param_0_or_1(fun)
 
-        self.call_with_param_0_or_1(getattr(self, "post_install_fun", lambda: None))
+        self._call_with_param_0_or_1(getattr(self, "post_install_fun", lambda: None))
 
+        SetCache("package_installed").append_set(self.name)
         print(f"""{colored(self.name, "green")} 安装完成.""")
 
 
@@ -296,6 +309,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pre_install_proxy(True),
         post_install_fun=config_trojan,
+        depends=["caddy", "sudo"],
     )
 )
 
@@ -355,6 +369,7 @@ packages_list.add(
         "python-requests",
         0,
         pm_name=lambda: "python-requests" if pm() == "p" else "python3-requests",
+        depends=["python-pip"],
     )
 )
 packages_list.add(
@@ -381,6 +396,7 @@ packages_list.add(
         install_fun=lambda: pip(
             "bin-package-manager", "" if not exists("bpm") else " -U"
         ),
+        depends=["python-pip"],
     )
 )
 packages_list.add(
@@ -390,6 +406,7 @@ packages_list.add(
         pre_install_fun=lambda: None if pre_install_proxy() is None else True,
         install_fun=lambda: bpm("https://github.com/p4gefau1t/trojan-go"),
         post_install_fun=config_trojan_go,
+        depends=["caddy", "sudo"],
     )
 )
 
@@ -430,6 +447,7 @@ packages_list.add(
         pre_install_fun=lambda: None if pre_install_proxy() is None else True,
         install_fun=lambda: rc_sudo("curl -fsSL https://get.hy2.sh/ | bash"),
         post_install_fun=config_hysteria,
+        depends=["caddy", "sudo"],
     )
 )
 
@@ -451,6 +469,7 @@ packages_list.add(
             "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
         ),
         post_install_fun=lambda: fish_add_config("mcfly init fish | source"),
+        depends=["fish"],
     )
 )
 
@@ -464,6 +483,7 @@ packages_list.add(
             "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
         ),
         post_install_fun=lambda: fish_add_config("zoxide init fish | source"),
+        depends=["fish"],
     )
 )
 
@@ -487,6 +507,7 @@ packages_list.add(
             "curl -sS https://starship.rs/install.sh | sh -s -- -y"
         ),
         post_install_fun=lambda: fish_add_config("starship init fish | source"),
+        depends=["fish"],
     )
 )
 
@@ -548,6 +569,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/neovim/neovim"),
+        depends=["bpm"],
     )
 )
 
@@ -557,6 +579,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/fastfetch-cli/fastfetch"),
+        depends=["bpm"],
     )
 )
 
@@ -566,6 +589,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/zellij-org/zellij"),
+        depends=["bpm"],
     )
 )
 
@@ -575,6 +599,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/sharkdp/bat"),
+        depends=["bpm"],
     )
 )
 
@@ -584,6 +609,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/ducaale/xh"),
+        depends=["bpm"],
     )
 )
 
@@ -599,6 +625,7 @@ packages_list.add(
             "--filter uring" if kernel_ver() > 5.10 else "",
         ),
         post_install_fun=config_openppp2,
+        depends=["bpm"],
     )
 )
 
@@ -613,6 +640,7 @@ packages_list.add(
             rc("atuin import auto", check=False),
             fish_add_config("atuin init fish | source"),
         ),
+        depends=["fish", "bpm"],
     )
 )
 
@@ -655,7 +683,7 @@ def show_all_available_packages():
 def install_one(p: str, ignore_cache: bool = False):
     try:
         if ignore_cache:
-            mycache("install").remove_set(p)
+            SetCache("install").remove_set(p)
         packages_list[p].install()
     except (TypeError, KeyError):
         trace()

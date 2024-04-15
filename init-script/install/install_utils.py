@@ -4,7 +4,7 @@ import shlex
 import subprocess
 
 from ..utils import colored, pm, pm_fullname
-from ..utils.mycache import mycache
+from ..utils.mycache import SetCache, cache_dir
 
 
 def check_package_exists(package_name):
@@ -44,13 +44,13 @@ def install_once(name: str):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             func_fullname = self.name
-            if mycache(name).in_set(func_fullname):
+            if SetCache(name).in_set(func_fullname):
                 log.warning(
-                    f"{colored(func_fullname, 'green')} has been installed, skip installation. If you wish to force reinstall it, please use `-y` or delete the cache file in `{mycache.cache_dir() / name}`."
+                    f"{colored(func_fullname, 'green')} has been installed, skip installation. If you wish to force reinstall it, please use `-y` or delete the cache file in `{cache_dir() / name}`."
                 )
                 return
             result = func(self, *args, **kwargs)
-            mycache(name).append_set(func_fullname)
+            SetCache(name).append_set(func_fullname)
             return result
 
         return wrapper

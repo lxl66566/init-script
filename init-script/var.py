@@ -7,7 +7,7 @@ from typing import Optional
 
 from .utils import colored
 from .utils.input import user_input
-from .utils.mycache import mycache
+from .utils.mycache import BaseCache
 
 # 在这里更改自定义配置
 
@@ -25,7 +25,7 @@ GET_CERT_DEFAULT_WAIT = 20  # 获取证书的默认等待时间（秒）
 
 # 自定义配置区域结束，不要更改其他地方
 
-_cache: dict = mycache("var").load() or {}
+_cache: dict = BaseCache("var").load() or {}
 _domain: Optional[str] = _cache.get("domain")
 _password: list[str] = _cache.get("password") or []
 
@@ -33,7 +33,7 @@ _password: list[str] = _cache.get("password") or []
 def save():
     _cache["domain"] = _domain
     _cache["password"] = _password
-    mycache("var").save(_cache)
+    BaseCache("var").save(_cache)
 
 
 def ask():

@@ -16,12 +16,12 @@ from contextlib import suppress
 from pathlib import Path
 
 from .utils import *
-from .utils.mycache import *
+from .utils.mycache import SimpleCache
 from .var import GET_CERT_DEFAULT_WAIT, GET_CERT_MAX_RETRY, PROXY_PORT, domain, password
 
 cert_crt_ln = Path()
 cert_key_ln = Path()
-wait = int(mycache.simple_load("proxy.wait")) * GET_CERT_DEFAULT_WAIT
+wait = int(SimpleCache.load("proxy.wait")) * GET_CERT_DEFAULT_WAIT
 config_path = mypath() / "init-script" / "config"
 
 
@@ -87,7 +87,7 @@ def ln_caddy_cert():
     cert_crt_ln.chmod(0o777)
     cert_key_ln.chmod(0o777)
     check_cert()
-    mycache.simple_save("proxy.wait")
+    SimpleCache.save("proxy.wait")
     logging.info("证书配置完成")
 
 
