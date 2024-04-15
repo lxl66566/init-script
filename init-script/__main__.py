@@ -23,6 +23,21 @@ ALL（所有软件 + 代理 + 定时）
 menu = SelectorMenu(options, title="请选择需要进行的项目：")
 ans = menu.input()
 
+
+def afk_options():
+    from .afk import init, remove
+
+    submenu = SelectorMenu(["安装", "卸载"], title="请选择需要进行的项目：")
+    ans = submenu.input()
+    match ans.index:
+        case 0:
+            init()
+            logging.info("已部署挂机脚本。")
+        case 1:
+            remove()
+            logging.info("已卸载挂机脚本，清理所有容器。")
+
+
 match ans.index:
     case 0:
         install_init()
@@ -34,9 +49,7 @@ match ans.index:
     case 3:
         timer_init()
     case 4:
-        from .afk import init
-
-        init()
+        afk_options()
     case 5:
         show_all_status()
     case 6:

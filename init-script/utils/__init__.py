@@ -10,6 +10,18 @@ import sys
 import traceback
 
 
+def once(func):
+    """Runs a function only once."""
+    results = {}
+
+    def wrapper(*args, **kwargs):
+        if func not in results:
+            results[func] = func(*args, **kwargs)
+        return results[func]
+
+    return wrapper
+
+
 # shell utils
 def rc(s: str, **kwargs):
     """
@@ -89,7 +101,7 @@ def error_exit(msg: str):
 
 
 # info utils
-@functools.lru_cache
+@once
 def mypath() -> pathlib.Path:
     return pathlib.Path(os.getenv("mypath") or "/absx")
 
@@ -116,7 +128,7 @@ def trace():
         traceback.print_exc()
 
 
-@functools.lru_cache
+@once
 def get_os_info() -> dict:
     def read_os_info(f):
         """f is an opened file"""
@@ -140,7 +152,7 @@ def get_os_info() -> dict:
     return os_info
 
 
-@functools.lru_cache
+@once
 def distro():
     os_name = str(get_os_info().get("NAME")).split(maxsplit=1)[0].lower()
     match os_name:
@@ -161,13 +173,13 @@ def distro():
             error_exit("Unsupported OS.")
 
 
-@functools.lru_cache
+@once
 def kernel_ver():
     _tuple = platform.release().split("-", 1)[0].split(".", 2)
     return int(_tuple[0]) + float(_tuple[1]) / 100
 
 
-@functools.lru_cache
+@once
 def ip():
     """
     ref: https://stackoverflow.com/a/28950776/18929691
@@ -204,19 +216,19 @@ def update_blog():
         )
 
 
-@functools.lru_cache
+@once
 def version():
     return float(get_os_info().get("VERSION_ID") or 0)
 
 
-@functools.lru_cache
+@once
 def pm():
     for p in ["pacman", "apt", "yum", "dnf"]:
         if exists(p):
             return p[0]
 
 
-@functools.lru_cache
+@once
 def pm_fullname():
     for p in ["pacman", "apt", "yum", "dnf"]:
         if p.startswith(pm()):
@@ -233,7 +245,6 @@ def user_input(s: str):
         raise e
 
 
-# logging
 def log_wrapper(func):
     """
     It's a logging decorator, can print some messages in pre_running and post_running a function.

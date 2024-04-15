@@ -292,7 +292,7 @@ packages_list.add(
 packages_list.add(
     Package(
         "trojan",
-        level=1,
+        level=2,
         pre_install_fun=lambda: pre_install_proxy(True),
         post_install_fun=config_trojan,
     )
@@ -327,31 +327,25 @@ def base_name():
         return "build-essential"
 
 
-def install_base():
-    """
-    为了之后的 nvim 插件做准备，300MB，不想装可以不用
-    """
+def install_base_on_yum():
     if pm() == "y":
         rc_sudo(
-            " ".join(
-                (
-                    "yum",
-                    "groupinstall",
-                    "'Development Tools'",
-                    "-y",
-                    quiet(),
-                )
-            )
+            f"yum groups mark install 'Development Tools' -y {quiet()}", check=False
         )
+        rc_sudo(
+            f"yum groups mark convert 'Development Tools' -y {quiet()}", check=False
+        )
+        rc_sudo(f"yum groupinstall 'Development Tools' -y {quiet()}")
 
 
+# base 一般是为了之后的 nvim 插件或者其他开发做准备，300MB，空间不够就不装了
 packages_list.add(
     Package(
         "base",
         1,
         pm_name=base_name,
         pre_install_fun=lambda: pm() not in "ap",
-        install_fun=install_base,
+        install_fun=install_base_on_yum,
     )
 )
 
@@ -620,12 +614,23 @@ packages_list.add(
     )
 )
 
+# region end install
+
+
+@once
+def map_level():
+    """
+    if the remain space is more than 2GB, return 1, else return 2
+    """
+    return 1 if shutil.disk_usage("/").free > 2 * 1024**3 else 2
+
 
 def install_all():
     cut()
-    logging.info(colored("starting to install ALL", "green"))
+    logging.info(colored(f"starting to install ALL, level: >= {map_level()}", "green"))
     for item in packages_list.values():
-        item.install()
+        if item.level >= map_level():
+            item.install()
     cut()
     logging.info("all packages have been installed")
 

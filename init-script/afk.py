@@ -1,31 +1,52 @@
 # this script was only tested on podman.
 # ruff: noqa: F403, F405
+import logging as log
+import subprocess
 
-from utils import *
+from .utils import error_exit, exists, rc, rc_sudo
+
+prefix = ""
+TOKENS = {
+    "packetstream": "5wA2",
+    "traffmonetizer": "N5SmpurHI0TArINp8KiHb6VVpV8iaeqkwhhy3sxP0l4=",
+    "earnfm": "52d56223-15b5-4162-9608-a79c2dc87230",
+}
 
 
-def init():
+def check_container():
+    global prefix
     if exists("podman"):
         prefix = "podman"
     elif exists("docker"):
         prefix = "docker"
     else:
         error_exit("Please install a container manager, like podman or docker")
-    logging.warning(
+
+
+def init():
+    check_container()
+    log.warning(
         "the AFk script is to earn money FOR ME. If you want to use this, make sure you have replaced this script with your ids."
     )
     # https://packetstream.io/
     rc_sudo(
-        prefix
-        + " run -d --restart=always -e CID=5wA2 --name psclient docker.io/packetstream/psclient:latest"
+        f"{prefix} run -d --restart=always -e CID={TOKENS['packetstream']} --name psclient docker.io/packetstream/psclient:latest"
     )
     # https://app.traffmonetizer.com
     rc_sudo(
-        prefix
-        + " run -d --name tm docker.io/traffmonetizer/cli_v2 start accept --token N5SmpurHI0TArINp8KiHb6VVpV8iaeqkwhhy3sxP0l4="
+        f"{prefix} run -d --name tm docker.io/traffmonetizer/cli_v2 start accept --token {TOKENS['traffmonetizer']}"
     )
     # https://app.earn.fm
     rc_sudo(
-        prefix
-        + """ run -d --restart=always -e EARNFM_TOKEN="52d56223-15b5-4162-9608-a79c2dc87230" --name earnfm-client docker.io/earnfm/earnfm-client:latest"""
+        f"""{prefix} run -d --restart=always -e EARNFM_TOKEN="{TOKENS['earnfm']}" --name earnfm-client docker.io/earnfm/earnfm-client:latest"""
     )
+
+
+def remove():
+    check_container()
+    result = rc(
+        f"{prefix} ps -q", stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    for name in result.split():
+        rc(f"{prefix} kill {name}")
+        rc(f"{prefix} rm {name}")
