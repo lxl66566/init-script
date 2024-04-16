@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .install.proxy import ln_caddy_cert
 from .utils import *
+from .utils.service import restart_all_services
 
 daily = Path("/etc/cron.daily/init-script")
 
@@ -43,9 +44,15 @@ exit 0
     logging.info(f"Added daily cron task: `{task}`")
 
 
-if __name__ == "__main__":
+def main():
     update_blog()
     try:
         ln_caddy_cert()
+        restart_all_services()
     except Exception as e:
+        trace()
         error_exit(e)
+
+
+if __name__ == "__main__":
+    main()

@@ -16,7 +16,8 @@ from contextlib import suppress
 from pathlib import Path
 
 from ..utils import *
-from ..utils.mycache import SimpleCache
+from ..utils.mycache import BaseCache, SimpleCache
+from ..utils.service import is_service_running
 from ..var import (
     GET_CERT_DEFAULT_WAIT,
     GET_CERT_MAX_RETRY,
@@ -25,8 +26,8 @@ from ..var import (
     password,
 )
 
-cert_crt_ln = Path()
-cert_key_ln = Path()
+cert_crt_ln = BaseCache("cert").load()
+cert_key_ln = BaseCache("key").load()
 wait = int(not SimpleCache.load("proxy.wait")) * GET_CERT_DEFAULT_WAIT
 config_path = mypath() / "init-script" / "config"
 
@@ -35,6 +36,7 @@ def check_cert():
     """
     检查证书是否存在
     """
+    assert cert_crt_ln is not None and cert_key_ln is not None, "无法读取链接位置！"
     assert cert_crt_ln.exists(), f"{str(cert_crt_ln.absolute())} 位置未找到证书"
     assert cert_key_ln.exists(), f"{str(cert_key_ln.absolute())} 位置未找到密钥"
 
@@ -79,6 +81,8 @@ def ln_caddy_cert():
     cert_crt = next(certs_dir.rglob(domain() + ".crt"))
     cert_key = next(certs_dir.rglob(domain() + ".key"))
 
+    # if not found, raise StopIteration
+
     assert cert_crt.exists() and cert_key.exists(), "未找到证书，尝试重新生成"
     cert_crt_ln = mypath() / cert_crt.name
     cert_key_ln = mypath() / cert_key.name
@@ -95,6 +99,8 @@ def ln_caddy_cert():
     )
     cert_crt_ln.chmod(0o777)
     cert_key_ln.chmod(0o777)
+    BaseCache("cert").save(cert_crt_ln)
+    BaseCache("key").save(cert_key_ln)
     check_cert()
     SimpleCache.save("proxy.wait")
     logging.info("证书配置完成")
@@ -225,21 +231,3 @@ WantedBy=multi-user.target
     rc_sudo("systemctl enable --now openppp2")
     assert is_service_running("openppp2"), "openppp2 服务启动失败"
     logging.info("openppp2 服务启动成功")
-
-
-def show_all_status():
-    """
-    展示服务运行状态
-    """
-
-    def show_one_status(service: str):
-        subprocess.run(
-            f"systemctl status {service} --no-pager", shell=True, check=False
-        )
-
-    if domain():
-        show_one_status("caddy")
-        show_one_status("hysteria-server@hysteria")
-        show_one_status("trojan-go")
-        show_one_status("trojan")
-    show_one_status("openppp2")

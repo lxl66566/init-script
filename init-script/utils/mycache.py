@@ -31,7 +31,7 @@ class BaseCache:
         cache_dir().mkdir(mode=0o777, exist_ok=True)
         self.file = cache_dir() / name
 
-    def load(self) -> any:
+    def load(self):
         """
         load data
         """

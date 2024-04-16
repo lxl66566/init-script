@@ -61,17 +61,6 @@ def exists(s: str) -> bool:
         return shutil.which(s) is not None
 
 
-def is_service_running(service_name: str):
-    """
-    检查服务是否正在运行
-    :param service_name: 待检查的服务名
-    :return: 如果服务正在运行返回 True，否则返回 False
-    """
-    cmd = ["systemctl", "is-active", service_name]
-    output = subprocess.check_output(cmd).decode().strip()
-    return output == "active"
-
-
 def is_root() -> bool:
     return os.geteuid() == 0
 

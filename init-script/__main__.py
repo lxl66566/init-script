@@ -4,20 +4,22 @@ import shutil
 
 from .install import ask_install_one
 from .install import init as install_init
-from .install.proxy import show_all_status
 from .timer import init as timer_init
+from .timer import main as timer_main
 from .utils import error_exit
 from .utils.input import get_user_choice
 from .utils.mycache import cache_dir
+from .utils.service import show_all_status
 
-options = """
+options = f"""
 ALL（所有软件 + 代理 + 定时）
 安装所有软件包
 安装单独软件包（手动）
 部署定时任务，用于证书与博客更新
 一键挂机（本人的挂机脚本）
-查看代理服务运行情况
-清除脚本缓存
+查看代理服务运行情况，重启失败服务
+清除缓存（aka. 删除{cache_dir()}）
+立即启动定时脚本（更新证书、博客，重启服务）
 """.strip().split("\n")
 
 
@@ -55,5 +57,7 @@ match get_user_choice(options):
             ),
         )
         logging.info("已清除脚本缓存。")
+    case 7:
+        timer_main()
     case get_code:
         error_exit(f"程序内部错误：获取到不正确的输入码：{get_code}")
