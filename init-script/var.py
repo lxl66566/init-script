@@ -2,6 +2,7 @@
 包含一些需要使用的变量。
 """
 
+import logging as log
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +30,8 @@ _cache: dict = BaseCache("var").load() or {}
 _domain: Optional[str] = _cache.get("domain")
 _password: list[str] = _cache.get("password") or []
 
+log.debug(f"read domain: {_domain}, password: {_password}")
+
 
 def save():
     _cache["domain"] = _domain
@@ -43,6 +46,7 @@ def ask():
         _domain = user_input(
             f"请输入本机域名，若留空则跳过所有{colored('需要 SSL 的代理', 'yellow')}部署: "
         )
+        print(f"使用域名：`{_domain}`")
     if not _domain:
         return
     if not _password:
@@ -50,6 +54,7 @@ def ask():
             "请输入密码，不同密码用空格隔开，用于设置代理。在某些场合下只有第一个密码有效: "
         ).split(" ")
     assert _password, "密码不能为空"
+    print(f"使用密码：`{_password}`")
     save()
 
 

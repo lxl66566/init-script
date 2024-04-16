@@ -242,13 +242,11 @@ def bpm(*args):
         packages_list["bpm"].install()
 
 
-def pre_install_proxy(need_caddy=True):
+def pre_install_proxy():
     if not domain():
         print("未设置域名，跳过安装")
         return None
-    if need_caddy and not exists("caddy"):
-        packages_list["caddy"].install()
-    return False
+    return True
 
 
 # region begin install
@@ -307,7 +305,7 @@ packages_list.add(
     Package(
         "trojan",
         level=2,
-        pre_install_fun=lambda: pre_install_proxy(True),
+        pre_install_fun=lambda: False if pre_install_proxy() else None,
         post_install_fun=config_trojan,
         depends=["caddy", "sudo"],
     )
@@ -403,16 +401,16 @@ packages_list.add(
     Package(
         "trojan-go",
         2,
-        pre_install_fun=lambda: None if pre_install_proxy() is None else True,
+        pre_install_fun=lambda: pre_install_proxy(),
         install_fun=lambda: bpm("https://github.com/p4gefau1t/trojan-go"),
         post_install_fun=config_trojan_go,
-        depends=["caddy", "sudo"],
+        depends=["caddy", "sudo", "bpm"],
     )
 )
 
 
 def pre_install_caddy():
-    if domain() is None:
+    if not domain():
         return None
 
     if pm() == "a":
@@ -444,7 +442,7 @@ packages_list.add(
     Package(
         "hysteria2",
         2,
-        pre_install_fun=lambda: None if pre_install_proxy() is None else True,
+        pre_install_fun=lambda: pre_install_proxy(),
         install_fun=lambda: rc_sudo("curl -fsSL https://get.hy2.sh/ | bash"),
         post_install_fun=config_hysteria,
         depends=["caddy", "sudo"],
@@ -457,6 +455,7 @@ packages_list.add(
         2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/sharkdp/fd"),
+        depends=["bpm"],
     )
 )
 
@@ -469,7 +468,7 @@ packages_list.add(
             "curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly --force"
         ),
         post_install_fun=lambda: fish_add_config("mcfly init fish | source"),
-        depends=["fish"],
+        depends=["fish", "sudo"],
     )
 )
 
@@ -483,7 +482,7 @@ packages_list.add(
             "curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash"
         ),
         post_install_fun=lambda: fish_add_config("zoxide init fish | source"),
-        depends=["fish"],
+        depends=["fish", "sudo"],
     )
 )
 
@@ -526,6 +525,7 @@ packages_list.add(
         pm_name=lambda: "sd" if pm() == "p" else "rust-sd",
         pre_install_fun=lambda: (distro() == "d" and version() < 13) or distro() == "u",
         install_fun=lambda: bpm("https://github.com/chmln/sd"),
+        depends=["bpm"],
     )
 )
 
@@ -535,6 +535,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/BurntSushi/ripgrep", "-b rg"),
+        depends=["bpm"],
     )
 )
 
@@ -544,6 +545,7 @@ packages_list.add(
         level=2,
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/eza-community/eza"),
+        depends=["bpm"],
     )
 )
 
@@ -560,6 +562,7 @@ packages_list.add(
         "yazi",
         level=2,
         install_fun=install_yazi,
+        depends=["bpm"],
     )
 )
 

@@ -44,6 +44,7 @@ def config_caddy():
     配置 caddy 及其证书
     """
     assert exists("caddy"), "caddy 安装失败"
+    assert domain(), "域名未设置，拒绝配置 caddy"
     update_blog()
 
     content = (config_path / "Caddyfile").read_text(encoding="utf-8")

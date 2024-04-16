@@ -30,23 +30,22 @@
 
 - 默认
   ```sh
-  curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
+  curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh -o load.sh && chmod +x load.sh && ./load.sh
   ```
 - 更改默认目录
   ```sh
-  mypath=/mypath curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh | bash
+  export mypath=/mypath && curl https://raw.githubusercontent.com/lxl66566/init-script/py/load.sh -o load.sh && chmod +x load.sh && ./load.sh
   ```
 
-其中，`mypath=/mypath` 修改了环境变量。类似地，您可以修改环境变量使程序拥有不同的运行表现：
+其中，`export mypath=/mypath` 修改了环境变量。类似地，您可以修改环境变量使程序拥有不同的运行表现：
 
 ```sh
-debug=1         # debug 模式（显示详细信息）
+mypath=/mypath  # 更改默认目录，所有缓存、证书、代码仓库将全部放在此目录下。
+debug=1         # debug 模式，显示调试信息。
 DISABLE_TUI=1   # 使用传统面板，而非 tui 面板。如果 tui 面板在您的系统上工作异常，请使用此选项。
 ```
 
-### 自定义
-
-一部分配置选项放在 `init-script/var.py`，您可以自行更改配置。
+除了通过环境变量修改，还有一部分配置选项放在 `init-script/var.py` 中，您可以自行更改配置。
 
 如果您需要修改源码后运行，请在项目目录下执行 `python3 -m init-script`。
 
