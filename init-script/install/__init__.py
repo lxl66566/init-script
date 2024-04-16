@@ -79,12 +79,12 @@ class Package:
     @install_once(name="install")
     def install(self):
         # install dependencies
-        for i in self.depends:
-            if (p := packages_list.get(i)) and not SetCache("package_installed").in_set(
-                i
-            ):
-                p.install()
-            else:
+        for depend in self.depends:
+            if (pack := packages_list.get(depend)) and not SetCache(
+                "package_installed"
+            ).in_set(depend):
+                pack.install()
+            elif packages_list.get(depend) is None:
                 log.error(f"安装 {self.name} 时出错：")
                 error_exit(f"找不到依赖包 {i}，请开启 issue 报告")
 

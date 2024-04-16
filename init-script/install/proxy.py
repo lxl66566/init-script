@@ -51,7 +51,9 @@ def config_caddy():
     content = content.replace("/absx", str(mypath()))
     content = content.replace("jp.absx.online", domain())
 
-    Path("/etc/caddy/Caddyfile").write_text(content, encoding="utf-8")
+    caddy_file_path = Path("/etc/caddy/Caddyfile")
+    caddy_file_path.parent.mkdir(parents=True, exist_ok=True)
+    caddy_file_path.write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
     rc_sudo("systemctl enable --now caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
