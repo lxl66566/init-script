@@ -54,7 +54,7 @@ def get_user_choice_classic(options: list[str], title="请选择需要进行的�
 @user_interrupt
 def get_user_choice_tui(options: list[str], title="请选择需要进行的项目："):
     menu = SelectorMenu(options, title=title)
-    return menu.input()
+    return menu.input().index
 
 
 def get_user_choice(options: list[str], title="请选择需要进行的项目："):

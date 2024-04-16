@@ -1,13 +1,25 @@
-# cache utils
 import contextlib
+import functools
 import pathlib
 import pickle
+import shutil
+import tempfile
+import unittest
 
-from ..utils import mypath
+TEST = False
 
 
+@functools.lru_cache
 def cache_dir() -> pathlib.Path:
-    return (mypath() / ".cache").resolve()
+    """
+    return the cache directory
+    """
+    if not TEST:
+        from ..utils import mypath
+
+        return (mypath() / ".cache").resolve()
+    else:
+        return pathlib.Path(tempfile.TemporaryDirectory(delete=False).name)
 
 
 class BaseCache:
@@ -34,6 +46,13 @@ class BaseCache:
         """
         with self.file.open("wb") as f:
             pickle.dump(data, f)
+
+    def clear(self) -> None:
+        """
+        clear cache
+        """
+        if self.file.exists():
+            self.file.unlink()
 
 
 class SetCache(BaseCache):
@@ -104,3 +123,43 @@ class SimpleCache:
         set a bool value to False quickly
         """
         return (cache_dir() / name).unlink(missing_ok=True)
+
+
+class Test(unittest.TestCase):
+    def test_base_cache(self):
+        BaseCache("base1")
+        data = {"test": 1, "test2": 2}
+        BaseCache("base1").save(data)
+        self.assertEqual(BaseCache("base1").load()["test"], 1)
+        self.assertEqual(BaseCache("base1").load()["test2"], 2)
+        BaseCache("base1").clear()
+        self.assertIsNone(BaseCache("base1").load())
+
+    def test_simple_cache(self):
+        self.assertFalse(SimpleCache.load("simple"))
+        SimpleCache.save("simple")
+        self.assertTrue(SimpleCache.load("simple"))
+        SimpleCache.save("simple")
+        self.assertTrue(SimpleCache.load("simple"))
+        SimpleCache.remove("simple")
+        self.assertFalse(SimpleCache.load("simple"))
+
+    def test_set_cache(self):
+        self.assertFalse(SetCache("set").in_set("123"))
+        self.assertTrue(SetCache("set").append_set("123"))
+        self.assertTrue(SetCache("set").in_set("123"))
+        self.assertFalse(SetCache("set").in_set("456"))
+        self.assertFalse(SetCache("set").append_set("123"))
+        self.assertTrue(SetCache("set").append_set("456"))
+        self.assertTrue(SetCache("set").in_set("456"))
+        # 123, 456
+        SetCache("set").remove_set("123")
+        self.assertFalse(SetCache("set").in_set("123"))
+        self.assertTrue(SetCache("set").in_set("456"))
+
+
+if __name__ == "__main__":
+    TEST = True
+    unittest.main()
+    shutil.rmtree(cache_dir())
+    TEST = False

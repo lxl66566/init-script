@@ -2,7 +2,7 @@
 import logging
 from pathlib import Path
 
-from .proxy import ln_caddy_cert
+from .install.proxy import ln_caddy_cert
 from .utils import *
 
 daily = Path("/etc/cron.daily/init-script")

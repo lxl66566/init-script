@@ -5,19 +5,19 @@ import logging
 from collections import OrderedDict
 from typing import Callable
 
-from ..proxy import (
-    config_caddy,
-    config_hysteria,
-    config_openppp2,
-    config_trojan,
-    config_trojan_go,
-)
 from ..utils import *
 from ..utils.input import user_input
 from ..utils.mycache import SetCache
 from ..var import ask, domain
 from .fish import fish_add_config, install_fish_on_debian, post_install_fish
 from .install_utils import *
+from .proxy import (
+    config_caddy,
+    config_hysteria,
+    config_openppp2,
+    config_trojan,
+    config_trojan_go,
+)
 
 
 class PackageList(OrderedDict):

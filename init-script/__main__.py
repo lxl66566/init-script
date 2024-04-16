@@ -4,7 +4,7 @@ import shutil
 
 from .install import ask_install_one
 from .install import init as install_init
-from .proxy import show_all_status
+from .install.proxy import show_all_status
 from .timer import init as timer_init
 from .utils import error_exit
 from .utils.input import get_user_choice
@@ -55,5 +55,5 @@ match get_user_choice(options):
             ),
         )
         logging.info("已清除脚本缓存。")
-    case _:
-        error_exit("输入有误，程序内部错误")
+    case get_code:
+        error_exit(f"程序内部错误：获取到不正确的输入码：{get_code}")
