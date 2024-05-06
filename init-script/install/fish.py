@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import logging as log
+import shutil
 from pathlib import Path
 
 from ..utils import mypath, quiet, rc, rc_sudo
@@ -26,7 +27,7 @@ def _remove_init(config_path: Path = FISH_CONFIG_FILE_PATH):
         return
     content = config_path.read_text(encoding="utf-8")
     content = "\n".join(
-        filter(lambda x: not ("init fish" in x and "source" in x), content.split("\n"))
+        filter(lambda x: not ("init" in x and "source" in x), content.split("\n"))
     )
     config_path.write_text(content, encoding="utf-8")
 
@@ -43,9 +44,11 @@ def post_install_fish():
     else:
         rc(f"git fetch --all {quiet()} -f", cwd=dotfile)
         rc(f"git reset --hard origin/{branch}", cwd=dotfile)
-    rc(
-        f"cp -rf {(dotfile / 'home/absolutex/.config/fish').absolute()} {Path.home() / '.config'}",
-        cwd=mypath(),
+
+    assert dotfile.exists(), "cannot fetch dotfile"
+    shutil.rmtree(Path.home() / ".config/fish", ignore_errors=True)
+    shutil.copytree(
+        dotfile / "home/absolutex/.config/fish", Path.home() / ".config" / "fish"
     )
     _remove_init()
 

@@ -32,7 +32,7 @@ def user_input(s: str):
 
 
 @user_interrupt
-def get_user_choice_classic(options: list[str], title="请选择需要进行的项目："):
+def get_user_choice_classic(options: list[str], title=""):
     # 打印选项列表
     for i, option in enumerate(options, 1):
         print(f"{i}. {option}")
@@ -52,12 +52,12 @@ def get_user_choice_classic(options: list[str], title="请选择需要进行的�
 
 
 @user_interrupt
-def get_user_choice_tui(options: list[str], title="请选择需要进行的项目："):
+def get_user_choice_tui(options: list[str], title=""):
     menu = SelectorMenu(options, title=title)
     return menu.input().index
 
 
-def get_user_choice(options: list[str], title="请选择需要进行的项目："):
+def get_user_choice(options: list[str], title="请选择需要进行的项目，Ctrl + c 取消："):
     if os.environ.get("DISABLE_TUI"):
         return get_user_choice_classic(options, title)
     else:

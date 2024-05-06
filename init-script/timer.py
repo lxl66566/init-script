@@ -1,54 +1,60 @@
 # ruff: noqa: F403, F405
 import logging
-from pathlib import Path
 
 from .install.proxy import ln_caddy_cert
 from .utils import *
-from .utils.service import restart_all_services
+from .utils.constant import SYSTEMD_SERVICE_DIR
+from .utils.service import restart_all_proxy_services
 
-daily = Path("/etc/cron.daily/init-script")
-
-
-def add_task(s: str):
-    """
-    尝试使用脚本添加 cron 任务失败，cronie 不支持
-    因此此函数不使用。
-    """
-    rc_sudo(f"""(crontab -l 2>/dev/null; echo "{s}") | crontab -""")
+service_name = SYSTEMD_SERVICE_DIR / "init-script.service"
+timer_name = SYSTEMD_SERVICE_DIR / "init-script.timer"
 
 
-def add_task_daily(s: str):
-    # add_task(f"0 0 * * * {s}")
+def add_task(command: str):
     try:
-        daily.write_text(s, encoding="utf-8")
-        daily.chmod(0o755)
+        content = f"""
+[Unit]
+Description=init-script timer
+
+[Service]
+ExecStart={command}
+"""
+        service_name.write_text(content, encoding="utf-8")
+        service_name.chmod(0o755)
+        content = f"""
+[Unit]
+Description=Runs mytimer every day
+
+[Timer]
+OnCalendar=daily
+Unit={service_name.name}
+
+[Install]
+WantedBy=multi-user.target
+"""
+        timer_name.write_text(content, encoding="utf-8")
+        timer_name.chmod(0o755)
     except PermissionError:
         logging.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
-        )
-    except FileNotFoundError:
-        logging.error(
-            "Cannot add task to /etc/cron.daily/init-script because dir does not exist."
         )
 
 
 def init():
     assert exists("crontab")
-    task = f"""#!/bin/bash
-cd {(mypath() / "init-script").absolute()}
-{sys.executable} -m init-script.timer
-exit 0
-"""
-    add_task_daily(task)
-    assert daily.exists(), "write daily cron script failed"
-    logging.info(f"Added daily cron task: `{task}`")
+    task = f"""cd {(mypath() / "init-script").absolute()} && {sys.executable} -m init-script.timer"""
+    add_task(task)
+    assert service_name.exists(), "write systemd timer service failed"
+    assert timer_name.exists(), "write systemd timer failed"
+    rc_sudo(f"systemctl enable {timer_name.name}")
+    logging.info(f"Added daily task: `{task}`")
 
 
 def main():
     update_blog()
     try:
         ln_caddy_cert()
-        restart_all_services()
+        restart_all_proxy_services()
     except Exception as e:
         trace()
         error_exit(e)

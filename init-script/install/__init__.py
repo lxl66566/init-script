@@ -79,14 +79,13 @@ class Package:
     @install_once(name="install")
     def install(self):
         # install dependencies
-        for depend in self.depends:
-            if (pack := packages_list.get(depend)) and not SetCache(
-                "package_installed"
-            ).in_set(depend):
-                pack.install()
-            elif packages_list.get(depend) is None:
-                log.error(f"安装 {self.name} 时出错：")
-                error_exit(f"找不到依赖包 {i}，请开启 issue 报告")
+        for i in self.depends:
+            p = packages_list.get(i)
+            assert p, f"找不到依赖包 {i}"
+            if not SetCache("package_installed").in_set(p.name):
+                p.install()
+            else:
+                log.debug(f"依赖 {p.name} 已经安装，跳过安装")
 
         cut()
         print(f"""开始安装 {colored(self.name, "green")}...""")
@@ -126,8 +125,6 @@ def init():
     match pm():
         case "p":
             assert exists("pacman")
-            rc_sudo("pacman -Syu --noconfirm")
-            rc_sudo("pacman -S --noconfirm archlinux-keyring")
             rc_sudo("pacman -S --needed --noconfirm base-devel")
         case "a":
             assert exists("apt")
@@ -308,27 +305,6 @@ packages_list.add(
         pre_install_fun=lambda: False if pre_install_proxy() else None,
         post_install_fun=config_trojan,
         depends=["caddy", "sudo"],
-    )
-)
-
-
-def cron_name():
-    if pm() == "p":
-        return "cronie"
-    else:
-        return "cron"
-
-
-def post_install_cron(self: Package):
-    rc_sudo(f"systemctl enable --now {self.name}")
-
-
-packages_list.add(
-    Package(
-        "cron",
-        2,
-        pm_name=cron_name,
-        post_install_fun=post_install_cron,
     )
 )
 

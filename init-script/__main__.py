@@ -4,6 +4,7 @@ import shutil
 
 from .install import ask_install_one
 from .install import init as install_init
+from .install.proxy import reconfig_all_proxies
 from .timer import init as timer_init
 from .timer import main as timer_main
 from .utils import error_exit
@@ -18,6 +19,7 @@ ALL（所有软件 + 代理 + 定时）
 部署定时任务，用于证书与博客更新
 一键挂机（本人的挂机脚本）
 查看代理服务运行情况，重启失败服务
+重新配置代理（需要代理已安装）
 清除缓存（aka. 删除{cache_dir()}）
 立即启动定时脚本（更新证书、博客，重启服务）
 """.strip().split("\n")
@@ -50,14 +52,16 @@ match get_user_choice(options):
     case 5:
         show_all_status()
     case 6:
-        shutil.rmtree(
-            cache_dir(),
-            onerror=lambda *args: error_exit(
-                f"清除缓存失败，请手动删除{str(cache_dir().absolute())}"
-            ),
-        )
-        logging.info("已清除脚本缓存。")
+        reconfig_all_proxies()
     case 7:
+        try:
+            shutil.rmtree(cache_dir())
+        except:  # noqa: E722
+            error_exit(f"清除缓存失败，请手动删除{str(cache_dir().absolute())}")
+        logging.info("已清除脚本缓存。")
+    case 8:
         timer_main()
     case get_code:
-        error_exit(f"程序内部错误：获取到不正确的输入码：{get_code}")
+        error_exit(
+            f"程序内部错误：获取到不正确的输入码：`{get_code}`，请开启 issue 报告"
+        )

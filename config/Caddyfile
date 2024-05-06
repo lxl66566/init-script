@@ -1,9 +1,3 @@
-{
-	log default {
-		output file /absx/caddylog
-	}
-}
-
 jp.absx.online
 
 root * /absx/lxl66566.github.io

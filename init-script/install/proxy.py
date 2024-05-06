@@ -16,8 +16,13 @@ from contextlib import suppress
 from pathlib import Path
 
 from ..utils import *
+from ..utils.constant import SYSTEMD_SERVICE_DIR
 from ..utils.mycache import BaseCache, SimpleCache
-from ..utils.service import is_service_running
+from ..utils.service import (
+    enable_start_service,
+    is_service_running,
+    reload_or_start_service,
+)
 from ..var import (
     GET_CERT_DEFAULT_WAIT,
     GET_CERT_MAX_RETRY,
@@ -39,13 +44,21 @@ def check_cert():
     assert cert_crt_ln is not None and cert_key_ln is not None, "无法读取链接位置！"
     assert cert_crt_ln.exists(), f"{str(cert_crt_ln.absolute())} 位置未找到证书"
     assert cert_key_ln.exists(), f"{str(cert_key_ln.absolute())} 位置未找到密钥"
+    assert (
+        cert_crt_ln.is_file()
+    ), f"{str(cert_crt_ln.absolute())} 位置未找到证书或不合法"
+    assert (
+        cert_key_ln.is_file()
+    ), f"{str(cert_key_ln.absolute())} 位置未找到密钥或不合法"
 
 
 def config_caddy():
     """
     配置 caddy 及其证书
     """
-    assert exists("caddy"), "caddy 安装失败"
+    if not exists("caddy"):
+        logging.warn("caddy 未安装，跳过配置...")
+        return
     assert domain(), "域名未设置，拒绝配置 caddy"
     update_blog()
 
@@ -57,7 +70,8 @@ def config_caddy():
     caddy_file_path.parent.mkdir(parents=True, exist_ok=True)
     caddy_file_path.write_text(content, encoding="utf-8")
     logging.info("Caddyfile has been written.")
-    rc_sudo("systemctl enable --now caddy")
+
+    enable_start_service("caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     for _ in range(GET_CERT_MAX_RETRY):  # 重试次数
         logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
@@ -67,8 +81,13 @@ def config_caddy():
             return
         except StopIteration:
             logging.info("未找到证书，尝试重新启动 caddy...")
-            rc_sudo("systemctl restart caddy")
-    error_exit("无法获取证书。")
+            reload_or_start_service("caddy")
+    error_exit(
+        "无法获取证书。"
+        + "这可能是由于 archlinux 更新内核后需要重启导致的，您可能需要手动 reboot。"
+        if pm() == "p"
+        else "" + "您可以执行 `journalctl -xeu caddy` 获取更多信息。"
+    )
 
 
 def ln_caddy_cert():
@@ -111,6 +130,10 @@ def config_hysteria():
     配置 hysteria
     """
 
+    if not exists("hysteria"):
+        logging.warn("hysteria 未安装，跳过配置...")
+        return
+
     with (config_path / "hysteria.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
@@ -135,7 +158,7 @@ def config_hysteria():
 
     logging.info("修改服务成功")
     rc_sudo("systemctl daemon-reload")
-    rc_sudo("systemctl enable --now hysteria-server@hysteria")
+    enable_start_service("hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
     logging.info("hysteria 服务启动成功")
 
@@ -144,6 +167,11 @@ def config_trojan():
     """
     配置 trojan
     """
+
+    if not exists("trojan"):
+        logging.warn("trojan 未安装，跳过配置...")
+        return
+
     with (config_path / "trojan.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
@@ -161,7 +189,7 @@ def config_trojan():
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan.service"
     )
     rc_sudo("systemctl daemon-reload")
-    rc_sudo("systemctl enable --now trojan")
+    enable_start_service("trojan")
     assert is_service_running("trojan"), "trojan 服务启动失败"
     logging.info("trojan 服务启动成功")
 
@@ -170,7 +198,14 @@ def config_trojan_go():
     """
     配置 trojan-go
     """
+
+    if not exists("trojan-go"):
+        logging.warn("trojan-go 未安装，跳过配置...")
+        return
+
     Path("/etc/trojan-go").mkdir(parents=True, exist_ok=True)
+    geo_dir = Path("/usr/share/trojan-go/")
+    geo_dir.mkdir(parents=True, exist_ok=True)
 
     with (config_path / "trojan-go.json").open(encoding="utf-8") as f:
         config = json.load(f)
@@ -183,13 +218,24 @@ def config_trojan_go():
 
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+
+    if not (geo_dir / "geoip.dat").exists():
+        rc(
+            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202405052210/geoip.dat",
+            cwd=geo_dir,
+        )
+    if not (geo_dir / "geosite.dat").exists():
+        rc(
+            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202405052210/geosite.dat",
+            cwd=geo_dir,
+        )
     logging.info("trojan-go 配置完成")
 
     rc_sudo(
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan-go.service"
     )
     rc_sudo("systemctl daemon-reload")
-    rc_sudo("systemctl enable --now trojan-go")
+    enable_start_service("trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
     logging.info("trojan-go 服务启动成功")
 
@@ -198,7 +244,10 @@ def config_openppp2():
     """
     配置 openppp
     """
-    assert exists("/usr/bin/ppp"), "openppp2 未安装或安装失败"
+
+    if not exists("openppp2"):
+        logging.warn("openppp2 未安装，跳过配置...")
+        return
 
     ppp_json = config_path / "openppp2.json"
     assert ppp_json.exists(), "openppp2.json 配置文件不存在"
@@ -223,11 +272,41 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 """
-    service_ppp = Path("/usr/lib/systemd/system/openppp2.service")
+    service_ppp = SYSTEMD_SERVICE_DIR / "openppp2.service"
     service_ppp.write_text(service, encoding="utf-8")
     service_ppp.chmod(0o644)
 
     rc_sudo("systemctl daemon-reload")
-    rc_sudo("systemctl enable --now openppp2")
+    enable_start_service("openppp2")
     assert is_service_running("openppp2"), "openppp2 服务启动失败"
     logging.info("openppp2 服务启动成功")
+
+
+def show_all_status():
+    """
+    展示服务运行状态
+    """
+
+    def show_one_status(service: str):
+        subprocess.run(
+            f"systemctl status {service} --no-pager", shell=True, check=False
+        )
+
+    if domain():
+        show_one_status("caddy")
+        show_one_status("hysteria-server@hysteria")
+        show_one_status("trojan-go")
+        show_one_status("trojan")
+    show_one_status("openppp2")
+
+
+def reconfig_all_proxies():
+    """
+    重新配置所有代理，并重启所有代理服务
+    """
+    if domain():
+        config_caddy()
+        config_hysteria()
+        config_trojan()
+        config_trojan_go()
+    config_openppp2()

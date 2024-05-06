@@ -41,6 +41,7 @@ fi
 # 安装所需包
 packages="git python3"
 if command -v pacman &>/dev/null; then
+    pacman -Sy --noconfirm archlinux-keyring
     pacman -Syu --needed --noconfirm python git
     elif command -v apt &>/dev/null; then
     export DEBIAN_FRONTEND=noninteractive
