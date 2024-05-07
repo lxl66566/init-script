@@ -39,6 +39,12 @@ def save():
     BaseCache("var").save(_cache)
 
 
+def reset():
+    global _cache
+    _cache.clear()
+    log.info("已重置域名与密码。")
+
+
 def ask():
     global _domain, _password
 
