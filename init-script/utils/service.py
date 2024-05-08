@@ -73,16 +73,18 @@ def is_service_running(service_name: str):
 
 def reload_or_start_service(service_name: str):
     """
-    重新加载服务配置文件，如果服务正在运行则尝试重新加载，否则启动服务。
+    重新加载服务配置文件，如果服务正在运行则尝试重新加载/重启，否则 enable 并启动服务。
     :param service_name: 待重新加载的服务名
     """
     logging.info(f"Reloading/Starting service: {service_name}")
     if is_service_running(service_name):
         try:
             rc_sudo(f"systemctl reload {service_name}", capture_output=True)
-            logging.info(f"重新加载 {service_name} 成功")
+            logging.info(f"reload {service_name} success")
         except subprocess.CalledProcessError:
             rc_sudo(f"systemctl restart {service_name}")
+            logging.info(f"restart {service_name} success")
         rc_sudo(f"systemctl reload {service_name}")
     else:
         logging.warning(f"Service {service_name} is not running. Starting...")
+        rc_sudo(f"systemctl enable --now {service_name}")

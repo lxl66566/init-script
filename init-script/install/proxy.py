@@ -158,7 +158,7 @@ def config_hysteria():
 
     logging.info("修改服务成功")
     rc_sudo("systemctl daemon-reload")
-    enable_start_service("hysteria-server@hysteria")
+    reload_or_start_service("hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
     logging.info("hysteria 服务启动成功")
 
@@ -189,7 +189,7 @@ def config_trojan():
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan.service"
     )
     rc_sudo("systemctl daemon-reload")
-    enable_start_service("trojan")
+    reload_or_start_service("trojan")
     assert is_service_running("trojan"), "trojan 服务启动失败"
     logging.info("trojan 服务启动成功")
 
@@ -235,7 +235,7 @@ def config_trojan_go():
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan-go.service"
     )
     rc_sudo("systemctl daemon-reload")
-    enable_start_service("trojan-go")
+    reload_or_start_service("trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
     logging.info("trojan-go 服务启动成功")
 
@@ -277,7 +277,7 @@ WantedBy=multi-user.target
     service_ppp.chmod(0o644)
 
     rc_sudo("systemctl daemon-reload")
-    enable_start_service("openppp2")
+    reload_or_start_service("openppp2")
     assert is_service_running("openppp2"), "openppp2 服务启动失败"
     logging.info("openppp2 服务启动成功")
 
