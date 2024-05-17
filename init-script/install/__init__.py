@@ -377,7 +377,7 @@ packages_list.add(
     Package(
         "trojan-go",
         2,
-        pre_install_fun=lambda: pre_install_proxy(),
+        pre_install_fun=pre_install_proxy,
         install_fun=lambda: bpm("https://github.com/p4gefau1t/trojan-go"),
         post_install_fun=config_trojan_go,
         depends=["caddy", "sudo", "bpm"],
@@ -418,7 +418,7 @@ packages_list.add(
     Package(
         "hysteria2",
         2,
-        pre_install_fun=lambda: pre_install_proxy(),
+        pre_install_fun=pre_install_proxy,
         install_fun=lambda: rc_sudo("curl -fsSL https://get.hy2.sh/ | bash"),
         post_install_fun=config_hysteria,
         depends=["caddy", "sudo"],
