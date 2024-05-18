@@ -298,6 +298,26 @@ packages_list.add(
 )
 
 
+def post_install_nix():
+    rc("exec bash")
+    output = rc("nix-channel --list", capture_output=True, text=True).stdout.strip()
+    if "unstable" not in output:
+        rc_sudo("nix-channel --add https://nixos.org/channels/nixpkgs-unstable")
+    rc_sudo("nix-channel --update")
+
+
+packages_list.add(
+    Package(
+        "nix",
+        0,
+        pre_install_fun=lambda: True,
+        install_fun=lambda: rc_sudo(
+            "sh <(curl -L https://nixos.org/nix/install) --daemon --yes"
+        ),
+        post_install_fun=post_install_nix,
+    )
+)
+
 packages_list.add(
     Package(
         "trojan",
