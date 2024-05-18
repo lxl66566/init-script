@@ -245,7 +245,7 @@ def config_openppp2():
     配置 openppp
     """
 
-    if not exists("openppp2"):
+    if not exists("ppp"):
         logging.warn("openppp2 未安装，跳过配置...")
         return
 
