@@ -297,6 +297,14 @@ packages_list.add(
     )
 )
 
+packages_list.add(
+    Package(
+        "cron",
+        2,
+        pm_name=lambda: "cronie" if pm() == "p" else "cron",
+    )
+)
+
 
 def post_install_nix():
     rc("exec bash")
@@ -636,7 +644,7 @@ packages_list.add(
         install_fun=lambda: bpm("https://github.com/atuinsh/atuin"),
         post_install_fun=lambda: (
             # ignore Error: Could not find history file "/root/.bash_history". Try setting $HISTFILE
-            rc("atuin import auto", check=False),
+            rc("fish -c 'atuin import auto'", check=False),
             fish_add_config("atuin init fish | source"),
         ),
         depends=["fish", "bpm"],
