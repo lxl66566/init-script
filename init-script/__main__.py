@@ -1,5 +1,5 @@
 # ruff:  noqa: F403
-import logging
+import logging as log
 import shutil
 
 from .install import ask_install_one
@@ -30,10 +30,10 @@ def afk_options():
     match get_user_choice(["安装", "卸载"]):
         case 0:
             init()
-            logging.info("已部署挂机脚本。")
+            log.info("已部署挂机脚本。")
         case 1:
             remove()
-            logging.info("已卸载挂机脚本，清理所有容器。")
+            log.info("已卸载挂机脚本，清理所有容器。")
 
 
 def reconfig_proxy_options():
@@ -48,10 +48,10 @@ def reconfig_proxy_options():
             reset()
             ask()
             reconfig_all_proxies()
-            logging.info("已重新配置代理。")
+            log.info("已重新配置代理。")
         case 1:
             reconfig_all_proxies()
-            logging.info("已重新配置代理。")
+            log.info("已重新配置代理。")
         case 2:
             show_all_status()
 
@@ -77,7 +77,7 @@ match get_user_choice(
             shutil.rmtree(cache_dir())
         except:  # noqa: E722
             error_exit(f"清除缓存失败，请手动删除{str(cache_dir().absolute())}")
-        logging.info("已清除脚本缓存。")
+        log.info("已清除脚本缓存。")
     case 7:
         timer_main()
     case get_code:

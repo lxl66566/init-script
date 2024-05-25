@@ -1,6 +1,6 @@
 import contextlib
 import functools
-import logging
+import logging as log
 import os
 import pathlib
 import platform
@@ -27,7 +27,7 @@ def rc(s: str, **kwargs):
     """
     rc means run with check.
     """
-    logging.debug(colored(f"run: {s}", "yellow"))
+    log.debug(colored(f"run: {s}", "yellow"))
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
     return subprocess.run(s, **kwargs)
@@ -41,7 +41,7 @@ def rc_sudo(s: str, **kwargs):
     if is_root():
         return rc(s, **kwargs)
     else:
-        logging.debug(colored(f"sudo run: {s}", "yellow"))
+        log.debug(colored(f"sudo run: {s}", "yellow"))
         kwargs.setdefault("check", True)
         kwargs.setdefault("shell", True)
         return subprocess.run(f"sudo {s}", **kwargs)
@@ -96,7 +96,7 @@ def mypath() -> pathlib.Path:
 
 
 def debug_mode() -> bool:
-    return logging.getLogger().isEnabledFor(logging.DEBUG)
+    return log.getLogger().isEnabledFor(log.DEBUG)
 
 
 def quiet() -> str:
@@ -156,7 +156,7 @@ def distro():
         case "centos":
             return "c"
         case _:
-            logging.error(
+            log.error(
                 f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
             )
             error_exit("Unsupported OS.")
@@ -226,18 +226,18 @@ def pm_fullname():
 
 def log_wrapper(func):
     """
-    It's a logging decorator, can print some messages in pre_running and post_running a function.
+    It's a log decorator, can print some messages in pre_running and post_running a function.
     """
 
     @functools.wraps(func)
     def decorator(*args, **kwargs):
         cut()
-        logging.info(
+        log.info(
             f"called {colored(func.__name__,'green')}"
             + (f" with args: {str(args)}, {str(kwargs)}" if args or kwargs else "")
         )
         result = func(*args, **kwargs)
-        logging.info(f"finished {colored(func.__name__,'green')}")
+        log.info(f"finished {colored(func.__name__,'green')}")
         return result
 
     return decorator

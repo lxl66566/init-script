@@ -1,5 +1,8 @@
+#!/usr/bin/env python3
+#
 # ruff: noqa: F403, F405
-import logging
+
+import logging as log
 from pathlib import Path
 
 from .install.proxy import ln_caddy_cert
@@ -15,14 +18,14 @@ def add_task_daily(s: str):
         daily.write_text(s, encoding="utf-8")
         daily.chmod(0o755)
     except PermissionError:
-        logging.error(
+        log.error(
             "Cannot add task to /etc/cron.daily/init-script without root permission."
         )
     except FileNotFoundError:
-        logging.error(
+        log.error(
             "Cannot add task to /etc/cron.daily/init-script because dir does not exist."
         )
-    logging.info(f"Added daily cron task: `{s}`")
+    log.info(f"Added daily cron task: `{s}`")
 
 
 def init():

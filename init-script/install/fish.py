@@ -33,7 +33,7 @@ def _remove_init(config_path: Path = FISH_CONFIG_FILE_PATH):
 
 
 def post_install_fish():
-    rc_sudo("chsh -s /usr/bin/fish")
+    rc_sudo(f"chsh -s {shutil.which('fish')}")
     dotfile = mypath() / "dotfile"
     branch = "archlinux"
     if not dotfile.exists():

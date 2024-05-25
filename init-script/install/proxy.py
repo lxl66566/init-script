@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # My linux proxy script.
 #
@@ -9,8 +9,9 @@
 # ruff: noqa: F403, F405
 
 import json
-import logging
+import logging as log
 import multiprocessing
+import shutil
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -57,7 +58,7 @@ def config_caddy():
     配置 caddy 及其证书
     """
     if not exists("caddy"):
-        logging.warn("caddy 未安装，跳过配置...")
+        log.warn("caddy 未安装，跳过配置...")
         return
     assert domain(), "域名未设置，拒绝配置 caddy"
     update_blog()
@@ -69,18 +70,18 @@ def config_caddy():
     caddy_file_path = Path("/etc/caddy/Caddyfile")
     caddy_file_path.parent.mkdir(parents=True, exist_ok=True)
     caddy_file_path.write_text(content, encoding="utf-8")
-    logging.info("Caddyfile has been written.")
+    log.info("Caddyfile has been written.")
 
     enable_start_service("caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     for _ in range(GET_CERT_MAX_RETRY):  # 重试次数
-        logging.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
+        log.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
         time.sleep(wait)  # 等待 caddy 获取证书
         try:
             ln_caddy_cert()
             return
         except StopIteration:
-            logging.info("未找到证书，尝试重新启动 caddy...")
+            log.info("未找到证书，尝试重新启动 caddy...")
             reload_or_start_service("caddy")
     error_exit(
         "无法获取证书。"
@@ -111,7 +112,7 @@ def ln_caddy_cert():
     # 这里如果用软连接会出现权限问题，硬链接则需要想办法定期更新。
     cert_crt_ln.hardlink_to(cert_crt)
     cert_key_ln.hardlink_to(cert_key)
-    logging.info(
+    log.info(
         "证书文件路径：  {}  {}".format(
             str(cert_crt_ln.absolute()), str(cert_key_ln.absolute())
         )
@@ -122,7 +123,7 @@ def ln_caddy_cert():
     BaseCache("key").save(cert_key_ln)
     check_cert()
     SimpleCache.save("proxy.wait")
-    logging.info("证书配置完成")
+    log.info("证书配置完成")
 
 
 def config_hysteria():
@@ -131,7 +132,7 @@ def config_hysteria():
     """
 
     if not exists("hysteria"):
-        logging.warn("hysteria 未安装，跳过配置...")
+        log.warn("hysteria 未安装，跳过配置...")
         return
 
     with (config_path / "hysteria.json").open(encoding="utf-8") as f:
@@ -144,7 +145,7 @@ def config_hysteria():
 
     with open("/etc/hysteria/hysteria.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-    logging.info("hysteria 配置完成")
+    log.info("hysteria 配置完成")
 
     assert is_root(), "This function must be run as root."
     for p in (
@@ -156,11 +157,11 @@ def config_hysteria():
             s = s.replace(r"/etc/hysteria/%i.yaml", r"/etc/hysteria/%i.json")
             Path(p).write_text(s, encoding="utf-8")
 
-    logging.info("修改服务成功")
+    log.info("修改服务成功")
     rc_sudo("systemctl daemon-reload")
     reload_or_start_service("hysteria-server@hysteria")
     assert is_service_running("hysteria-server@hysteria"), "hysteria 服务启动失败"
-    logging.info("hysteria 服务启动成功")
+    log.info("hysteria 服务启动成功")
 
 
 def config_trojan():
@@ -169,7 +170,7 @@ def config_trojan():
     """
 
     if not exists("trojan"):
-        logging.warn("trojan 未安装，跳过配置...")
+        log.warn("trojan 未安装，跳过配置...")
         return
 
     with (config_path / "trojan.json").open(encoding="utf-8") as f:
@@ -183,7 +184,7 @@ def config_trojan():
     with open("/etc/trojan/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
-    logging.info("trojan 配置完成")
+    log.info("trojan 配置完成")
 
     rc_sudo(
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan.service"
@@ -191,7 +192,7 @@ def config_trojan():
     rc_sudo("systemctl daemon-reload")
     reload_or_start_service("trojan")
     assert is_service_running("trojan"), "trojan 服务启动失败"
-    logging.info("trojan 服务启动成功")
+    log.info("trojan 服务启动成功")
 
 
 def config_trojan_go():
@@ -200,7 +201,7 @@ def config_trojan_go():
     """
 
     if not exists("trojan-go"):
-        logging.warn("trojan-go 未安装，跳过配置...")
+        log.warn("trojan-go 未安装，跳过配置...")
         return
 
     Path("/etc/trojan-go").mkdir(parents=True, exist_ok=True)
@@ -229,7 +230,7 @@ def config_trojan_go():
             "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202405052210/geosite.dat",
             cwd=geo_dir,
         )
-    logging.info("trojan-go 配置完成")
+    log.info("trojan-go 配置完成")
 
     rc_sudo(
         "sed -i '/User=nobody/ s/User=nobody/DynamicUser=yes/' /usr/lib/systemd/system/trojan-go.service"
@@ -237,7 +238,7 @@ def config_trojan_go():
     rc_sudo("systemctl daemon-reload")
     reload_or_start_service("trojan-go")
     assert is_service_running("trojan-go"), "trojan-go 服务启动失败"
-    logging.info("trojan-go 服务启动成功")
+    log.info("trojan-go 服务启动成功")
 
 
 def config_openppp2():
@@ -246,7 +247,7 @@ def config_openppp2():
     """
 
     if not exists("ppp"):
-        logging.warn("openppp2 未安装，跳过配置...")
+        log.warn("openppp2 未安装，跳过配置...")
         return
 
     ppp_json = config_path / "openppp2.json"
@@ -264,7 +265,7 @@ Description=openppp tui server
 After=network.target nss-lookup.target
 
 [Service]
-ExecStart=/usr/bin/ppp --mode=server --config={ppp_json.absolute()}
+ExecStart={shutil.which("ppp")} --mode=server --config={ppp_json.absolute()}
 StandardOutput=null
 StandardError=journal
 # Restart=on-failure
@@ -275,11 +276,11 @@ WantedBy=multi-user.target
     service_ppp = SYSTEMD_SERVICE_DIR / "openppp2.service"
     service_ppp.write_text(service, encoding="utf-8")
     service_ppp.chmod(0o644)
-
+    log.debug("openppp2 服务配置完成，正在启动...")
     rc_sudo("systemctl daemon-reload")
     reload_or_start_service("openppp2")
     assert is_service_running("openppp2"), "openppp2 服务启动失败"
-    logging.info("openppp2 服务启动成功")
+    log.info("openppp2 服务启动成功")
 
 
 def show_all_status():

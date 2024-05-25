@@ -1,7 +1,7 @@
 # ruff: noqa: F403, F405
 
 import inspect
-import logging
+import logging as log
 from collections import OrderedDict
 from typing import Callable
 
@@ -98,6 +98,7 @@ class Package:
             getattr(self, "pre_install_fun", lambda: False)
         )
 
+        log.debug(f"安装前函数执行完成，{pre_ret=}")
         if pre_ret is None:
             log.warning(f"""{colored(self.name, 'yellow')} 不满足安装条件，安装取消.""")
             return
@@ -110,6 +111,8 @@ class Package:
             ), "跳过了系统包安装，并且找不到自定义安装函数。这可能是您的平台不受支持，或者包管理器版本过低，请开 issue 报告"
             fun = getattr(self, "install_fun")
             self._call_with_param_0_or_1(fun)
+
+        log.debug("安装函数执行完成")
 
         self._call_with_param_0_or_1(getattr(self, "post_install_fun", lambda: None))
 
@@ -152,7 +155,7 @@ def init():
         case _:
             error_exit("Unsupported package manager.")
 
-    logging.info("init success")
+    log.info("init success")
     install_all()
 
 
@@ -188,13 +191,13 @@ def pm_install(*args) -> bool:
     basically install any packages by pm
     actually it's pacman + dnf + apt + yum 4 in 1
     """
-    logging.info("开始安装：" + " ".join(args))
+    log.info("开始安装：" + " ".join(args))
     match pm():
         case "p":
             pacman(*args)
         case _:
             day(*args)
-    logging.info("安装完成：" + " ".join(args))
+    log.info("安装完成：" + " ".join(args))
     return True
 
 
@@ -664,12 +667,12 @@ def map_level():
 
 def install_all():
     cut()
-    logging.info(colored(f"starting to install ALL, level: >= {map_level()}", "green"))
+    log.info(colored(f"starting to install ALL, level: >= {map_level()}", "green"))
     for item in packages_list.values():
         if item.level >= map_level():
             item.install()
     cut()
-    logging.info("all packages have been installed")
+    log.info("all packages have been installed")
 
 
 def show_all_available_packages():
