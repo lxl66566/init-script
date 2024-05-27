@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from typing import Callable, Iterable
 
 
 def once(func):
@@ -241,3 +242,17 @@ def log_wrapper(func):
         return result
 
     return decorator
+
+
+def find_index(list: Iterable, match: Callable):
+    """
+    Find the index of the first element in the given iterable that satisfies the given match function.
+
+    Parameters:
+        list (Iterable): The iterable to search through.
+        match (Callable): The function used to determine if an element satisfies the condition.
+
+    Returns:
+        int or None: The index of the first element that satisfies the condition, or None if no element is found.
+    """
+    return next((i for i, item in enumerate(list) if match(item)), None)

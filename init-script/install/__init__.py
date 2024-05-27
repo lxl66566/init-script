@@ -3,11 +3,14 @@
 import inspect
 import logging as log
 from collections import OrderedDict
+from contextlib import suppress
 from typing import Callable
 
 from ..utils import *
+from ..utils.conf import add_linux_conf
 from ..utils.input import user_input
 from ..utils.mycache import SetCache
+from ..utils.service import restart_service
 from ..var import ask, domain
 from .fish import fish_add_config, install_fish_on_debian, post_install_fish
 from .install_utils import *
@@ -125,6 +128,17 @@ def init():
     init the package manager.
     """
     ask()
+    # fuck U, snap!
+    if distro() == "u":
+        try:
+            rc_sudo("NEEDRESTART_MODE=a apt autoremove --purge snapd")
+            rc_sudo("apt-mark hold snapd")
+            rc_sudo("rm -rf /var/lib/snapd")
+            rc_sudo("rm -rf /var/snap")
+            rc_sudo("rm -rf ~/snap")
+            rc_sudo("rm -rf /snap")
+        except Exception as e:
+            log.error(e)
     match pm():
         case "p":
             assert exists("pacman")
@@ -651,6 +665,23 @@ packages_list.add(
             fish_add_config("atuin init fish | source"),
         ),
         depends=["fish", "bpm"],
+    )
+)
+
+
+def config_journal():
+    add_linux_conf(
+        "/etc/systemd/journald.conf", SystemMaxUse="50M", ForwardToSyslog="no"
+    )
+    restart_service("systemd-journald")
+
+
+packages_list.add(
+    Package(
+        "journal_setting",
+        level=2,
+        pre_install_fun=lambda: True,
+        install_fun=config_journal,
     )
 )
 
