@@ -4,6 +4,7 @@ import inspect
 import logging as log
 from collections import OrderedDict
 from contextlib import suppress
+from pathlib import Path
 from typing import Callable
 
 from ..utils import *
@@ -139,35 +140,32 @@ def init():
             rc_sudo("rm -rf /snap")
         except Exception as e:
             log.error(e)
-    match pm():
-        case "p":
-            assert exists("pacman")
-            rc_sudo("pacman -S --needed --noconfirm base-devel")
-        case "a":
-            assert exists("apt")
-            assert is_root(), "You need to be root to install packages."
-            rc_sudo("apt-get remove apt-listchanges -y", check=False)
-            rc_sudo("apt update -y")
-            rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
-            if distro() == "d" and version() <= 11:
-                rc(
-                    "echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list"
-                )
-                rc(
-                    "echo 'deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
-                )
-                rc(
-                    "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10/Release.key | apt-key add -"
-                )
-                rc("apt-get update -y")
-                rc("apt upgrade -y")
-                rc("apt-get -y -t buster-backports install libseccomp2")
-        case "y":
-            assert exists("yum"), "yum is not installed"
-            assert is_root(), "You need to be root to install packages."
-            rc_sudo("yum update -y")
-        case _:
-            error_exit("Unsupported package manager.")
+    if pm() == "p":
+        assert exists("pacman")
+        rc_sudo("pacman -S --needed --noconfirm base-devel")
+    elif pm() == "a":
+        assert exists("apt")
+        assert is_root(), "You need to be root to install packages."
+        rc_sudo("apt-get remove apt-listchanges -y", check=False)
+        if int(platform.python_version_tuple()[1]) < 10:
+            if distro() == "d":
+                source_list = Path("/etc/apt/sources.list")
+                s = source_list.read_text()
+                source_list.write_text(s.replace("bullseye", "bookworm"))
+        rc_sudo("apt update -y")
+        rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
+    elif pm() == "y":
+        assert exists("yum"), "yum is not installed"
+        assert is_root(), "You need to be root to install packages."
+        rc_sudo("yum update -y")
+    else:
+        error_exit("Unsupported package manager.")
+
+    if int(platform.python_version_tuple()[1]) < 10:
+        print(
+            "you may need to rerun this program since the current python version is too low.\nif this message appears again, please update your python version manually."
+        )
+        exit(1)
 
     log.info("init success")
     install_all()
