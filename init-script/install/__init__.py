@@ -254,6 +254,19 @@ def bpm(*args):
         packages_list["bpm"].install()
 
 
+def nix(*args):
+    """
+    use nix to install
+    """
+    if exists("nix"):
+        for package in args:
+            rc_sudo(
+                f"/nix/var/nix/profiles/default/bin/nix-env --install --attr nixpkgs.{package}"
+            )
+    else:
+        packages_list["nix"].install()
+
+
 def pre_install_proxy():
     if not domain():
         print("未设置域名，跳过安装")
@@ -309,6 +322,22 @@ packages_list.add(
         0,
         pre_install_fun=pre_install_paru,
         install_fun=install_paru,
+    )
+)
+
+
+def install_nix():
+    if exists("nix"):
+        return
+    rc_sudo("bash -c 'sh <(curl -L https://nixos.org/nix/install) --daemon --yes'")
+
+
+packages_list.add(
+    Package(
+        "nix",
+        0,
+        pre_install_fun=lambda: True,
+        install_fun=install_nix,
     )
 )
 
@@ -669,7 +698,12 @@ packages_list.add(
 
 def config_journal():
     add_linux_conf(
-        "/etc/systemd/journald.conf", SystemMaxUse="50M", ForwardToSyslog="no"
+        "/etc/systemd/journald.conf",
+        SystemMaxUse="250M",
+        SystemKeepFree="500M",
+        RuntimeMaxUse="50M",
+        RuntimeKeepFree="50M",
+        ForwardToSyslog="no",
     )
     restart_service("systemd-journald")
 
