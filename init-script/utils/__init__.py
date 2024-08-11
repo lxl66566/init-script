@@ -8,14 +8,14 @@ import shutil
 import subprocess
 import sys
 import traceback
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable, Optional, Union
 
 
-def once(func):
+def once(func: Callable[..., Any]) -> Callable[..., Any]:
     """Runs a function only once."""
-    results = {}
+    results: dict[Any, Callable[..., Any]] = {}
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         if func not in results:
             results[func] = func(*args, **kwargs)
         return results[func]
@@ -24,14 +24,28 @@ def once(func):
 
 
 # shell utils
-def rc(s: str, **kwargs):
+
+
+def rc(
+    s: str, **kwargs: Any
+) -> subprocess.CompletedProcess[Optional[Union[bytes, str]]]:
     """
     rc means run with check.
     """
-    log.debug(colored(f"run: {s}", "yellow"))
+    log.info(colored(f"run: `{s}`", "green"))
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
-    return subprocess.run(s, **kwargs)
+    try:
+        result: Any = subprocess.run(s, **kwargs)
+        return result
+    except subprocess.CalledProcessError as e:
+        log.error(
+            colored(
+                f"Command '{e.cmd}' returned non-zero exit status {e.returncode}.",
+                "red",
+            )
+        )
+        raise
 
 
 def rc_sudo(s: str, **kwargs):
@@ -63,7 +77,7 @@ def exists(s: str) -> bool:
 
 
 def is_root() -> bool:
-    return os.geteuid() == 0
+    return os.geteuid() == 0  # type: ignore
 
 
 def colored(msg: str, color: str):
@@ -85,8 +99,8 @@ def cut():
     print("-" * 70)
 
 
-def error_exit(msg: str):
-    print(colored(msg, "red"), file=sys.stderr)
+def error_exit(msg: Any):
+    print(colored(str(msg), "red"), file=sys.stderr)
     exit(1)
 
 
@@ -119,7 +133,7 @@ def trace():
 
 
 @once
-def get_os_info() -> dict:
+def get_os_info() -> dict[str, str]:
     def read_os_info(f):
         """f is an opened file"""
         os_info = {}
@@ -133,6 +147,7 @@ def get_os_info() -> dict:
         return os_info
 
     files = ["/etc/os-release", "/etc/redhat-release", "/etc/lsb-release"]
+    os_info = None
     for file in files:
         with contextlib.suppress(FileNotFoundError):
             with open(file, "r") as f:
@@ -158,7 +173,7 @@ def distro():
             return "c"
         case _:
             log.error(
-                f"""found NAME: {get_os_info.get("NAME")}, version: {get_os_info.get("VERSION_ID")}"""
+                f"""found NAME: {get_os_info().get("NAME")}, version: {get_os_info().get("VERSION_ID")}"""
             )
             error_exit("Unsupported OS.")
 
@@ -212,14 +227,14 @@ def version():
 
 
 @once
-def pm():
+def pm() -> str | None:
     for p in ["pacman", "apt", "yum", "dnf"]:
         if exists(p):
             return p[0]
 
 
 @once
-def pm_fullname():
+def pm_fullname() -> str | None:
     for p in ["pacman", "apt", "yum", "dnf"]:
         if p.startswith(pm()):
             return p

@@ -5,6 +5,7 @@ import pickle
 import shutil
 import tempfile
 import unittest
+from typing import Any
 
 TEST = False
 
@@ -40,7 +41,7 @@ class BaseCache:
         with self.file.open("rb") as f:
             return pickle.load(f)
 
-    def save(self, data: any) -> None:
+    def save(self, data: Any) -> None:
         """
         save data
         """
@@ -63,7 +64,7 @@ class SetCache(BaseCache):
     def __init__(self, name: str) -> None:
         super().__init__(name)
 
-    def in_set(self, data: any) -> bool:
+    def in_set(self, data: Any) -> bool:
         """
         returns True if data in cache, False if data not in cache
         """
@@ -73,7 +74,7 @@ class SetCache(BaseCache):
         else:
             return False
 
-    def append_set(self, data: any) -> bool:
+    def append_set(self, data: Any) -> bool:
         """
         returns True if data actually added to cache, False if data has already in the cache
         """
@@ -85,7 +86,7 @@ class SetCache(BaseCache):
         self.save(temp)
         return True
 
-    def remove_set(self, data: any):
+    def remove_set(self, data: Any):
         """
         remove a value from cache set
         """
@@ -118,11 +119,11 @@ class SimpleCache:
         return (cache_dir() / name).exists()
 
     @staticmethod
-    def remove(name: str) -> bool:
+    def remove(name: str) -> None:
         """
         set a bool value to False quickly
         """
-        return (cache_dir() / name).unlink(missing_ok=True)
+        (cache_dir() / name).unlink(missing_ok=True)
 
 
 class Test(unittest.TestCase):
@@ -130,8 +131,8 @@ class Test(unittest.TestCase):
         BaseCache("base1")
         data = {"test": 1, "test2": 2}
         BaseCache("base1").save(data)
-        self.assertEqual(BaseCache("base1").load()["test"], 1)
-        self.assertEqual(BaseCache("base1").load()["test2"], 2)
+        self.assertEqual(BaseCache("base1").load()["test"], 1)  # type: ignore
+        self.assertEqual(BaseCache("base1").load()["test2"], 2)  # type: ignore
         BaseCache("base1").clear()
         self.assertIsNone(BaseCache("base1").load())
 

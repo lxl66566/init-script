@@ -32,7 +32,7 @@ class PackageList(OrderedDict):
         self[package.name] = package
 
 
-packages_list: PackageList["Package"] = PackageList()
+packages_list: PackageList = PackageList()
 
 
 class Package:
@@ -180,16 +180,17 @@ def paru(*args):
     rc(" ".join(("yes | paru -S --needed", *args)))
 
 
-def day(*args):
+def day(*args: str):
     """
     dnf + apt + yum 3 in 1
     """
+
     rc_sudo(
         " ".join(
             (
                 "NEEDRESTART_MODE=a",  # for ubuntu
                 "DEBIAN_FRONTEND=noninteractive",  # for debian
-                {"a": "apt", "y": "yum", "d": "dnf"}.get(pm()),
+                pm_fullname(),
                 "install -y",
                 quiet(),
                 *args,
@@ -352,7 +353,10 @@ packages_list.add(
 
 def post_install_nix():
     rc("exec bash")
-    output = rc("nix-channel --list", capture_output=True, text=True).stdout.strip()
+    output = (
+        rc("nix-channel --list", capture_output=True, text=True).stdout or ""
+    ).strip()
+
     if "unstable" not in output:
         rc_sudo("nix-channel --add https://nixos.org/channels/nixpkgs-unstable")
     rc_sudo("nix-channel --update")
