@@ -140,6 +140,7 @@ def init():
             rc_sudo("rm -rf /snap")
         except Exception as e:
             log.error(e)
+
     if pm() == "p":
         assert exists("pacman")
         rc_sudo("pacman -S --needed --noconfirm base-devel")
@@ -173,16 +174,23 @@ def paru(*args):
     rc(" ".join(("yes | paru -S --needed", *args)))
 
 
-def day(*args: str):
-    """
-    dnf + apt + yum 3 in 1
-    """
+def apt(*args):
+    env = os.environ.copy()
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+    env["NEEDRESTART_MODE"] = "a"
 
+    # maybe we can use https://serverfault.com/a/839563
+    # do not use --force-yes: `W: --force-yes is deprecated, use one of the options starting with --allow instead.`
+    rc_sudo(" ".join((pm_fullname(), "install -y", quiet(), *args)), env=env)
+
+
+def dnfyum(*args: str):
+    """
+    dnf + yum 2 in 1
+    """
     rc_sudo(
         " ".join(
             (
-                "NEEDRESTART_MODE=a",  # for ubuntu
-                "DEBIAN_FRONTEND=noninteractive",  # for debian
                 pm_fullname(),
                 "install -y",
                 quiet(),
@@ -200,8 +208,10 @@ def pm_install(*args) -> bool:
     log.info("开始安装：" + " ".join(args))
     if pm() == "p":
         pacman(*args)
+    elif pm() == "a":
+        apt(*args)
     else:
-        day(*args)
+        dnfyum(*args)
     log.info("安装完成：" + " ".join(args))
     return True
 
@@ -458,7 +468,7 @@ def pre_install_caddy():
         return None
 
     if pm() == "a":
-        day("debian-keyring", "debian-archive-keyring", "apt-transport-https")
+        apt("debian-keyring", "debian-archive-keyring", "apt-transport-https")
         rc(
             "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
         )
@@ -467,7 +477,7 @@ def pre_install_caddy():
         )
         rc_sudo("apt update")
     elif pm() == "y":
-        day("yum-plugin-copr")
+        dnfyum("yum-plugin-copr")
         rc_sudo("yum copr enable @caddy/caddy")
     return False
 

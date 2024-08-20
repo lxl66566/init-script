@@ -66,9 +66,11 @@ if [ "$python_minor_version" -lt 10 ]; then
         sed -i 's/bullseye/bookworm/g' /etc/apt/sources.list
         echo "Replaced 'bullseye' with 'bookworm' in /etc/apt/sources.list"
         apt update -y
-        DEBIAN_FRONTEND=noninteractive apt upgrade -y
+        DEBIAN_FRONTEND=noninteractive apt --yes upgrade python3
     else
-        echo "Not a Debian system."
+        echo "Your python version is not 3.10 or higher, and here's not a Debian system."
+        echo "Please install Python 3.10 or higher and try again."
+        exit 1
     fi
 else
     echo "Python version is 3.10 or higher."
