@@ -24,8 +24,6 @@ def once(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 # shell utils
-
-
 def rc(
     s: str, **kwargs: Any
 ) -> subprocess.CompletedProcess[Optional[Union[bytes, str]]]:
@@ -56,10 +54,7 @@ def rc_sudo(s: str, **kwargs):
     if is_root():
         return rc(s, **kwargs)
     else:
-        log.debug(colored(f"sudo run: {s}", "yellow"))
-        kwargs.setdefault("check", True)
-        kwargs.setdefault("shell", True)
-        return subprocess.run(f"sudo {s}", **kwargs)
+        return rc(f"sudo {s}", **kwargs)
 
 
 def fish(s: str):
@@ -146,6 +141,7 @@ def get_os_info() -> dict[str, str]:
                 os_info[key.strip()] = value.strip().strip('"')
         return os_info
 
+    os_info = {}
     files = ["/etc/os-release", "/etc/redhat-release", "/etc/lsb-release"]
     os_info = None
     for file in files:

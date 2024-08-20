@@ -24,9 +24,9 @@
 ## 使用
 
 > [!CAUTION]  
-> **脚本仅支持 ArchLinux, Debian 系; python >= 3.10。** ~~想过适配 yum 系，系统也上了，结果发现要啥没啥，太累了。。我何必受这个罪呢。~~  
+> **脚本仅支持 ArchLinux, Debian 系; python >= 3.10；裸连 Github.** ~~想过适配 yum 系，系统也上了，结果发现要啥没啥，太累了。。我何必受这个罪呢。~~  
 > **脚本需要在 root 下运行；使用脚本前请务必了解风险。本人不承担使用脚本造成的任何后果。**  
-> 目前经过测试的平台有：_ArchLinux_, _Debian 12_, _Ubuntu 22.04_
+> 目前经过测试的平台有：_ArchLinux_, _Debian 11/12_, _Ubuntu 22.04_（debian 11 默认 python 版本 3.9，但我有特殊 hack）
 
 - 默认
   ```sh

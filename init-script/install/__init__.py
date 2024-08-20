@@ -147,13 +147,6 @@ def init():
         assert exists("apt")
         assert is_root(), "You need to be root to install packages."
         rc_sudo("apt-get remove apt-listchanges -y", check=False)
-        if int(platform.python_version_tuple()[1]) < 10:
-            if distro() == "d":
-                source_list = Path("/etc/apt/sources.list")
-                s = source_list.read_text()
-                source_list.write_text(s.replace("bullseye", "bookworm"))
-        rc_sudo("apt update -y")
-        rc_sudo("DEBIAN_FRONTEND=noninteractive apt upgrade -y")
     elif pm() == "y":
         assert exists("yum"), "yum is not installed"
         assert is_root(), "You need to be root to install packages."
@@ -205,11 +198,10 @@ def pm_install(*args) -> bool:
     actually it's pacman + dnf + apt + yum 4 in 1
     """
     log.info("开始安装：" + " ".join(args))
-    match pm():
-        case "p":
-            pacman(*args)
-        case _:
-            day(*args)
+    if pm() == "p":
+        pacman(*args)
+    else:
+        day(*args)
     log.info("安装完成：" + " ".join(args))
     return True
 
@@ -357,7 +349,7 @@ def post_install_nix():
         rc("nix-channel --list", capture_output=True, text=True).stdout or ""
     ).strip()
 
-    if "unstable" not in output:
+    if "unstable" not in output:  # type: ignore
         rc_sudo("nix-channel --add https://nixos.org/channels/nixpkgs-unstable")
     rc_sudo("nix-channel --update")
 

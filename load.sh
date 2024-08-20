@@ -56,6 +56,24 @@ if command -v pacman &>/dev/null; then
     dnf install -qy $packages
 fi
 
+# 检查 Python 版本 (针对 debian 11)
+python_version=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
+python_minor_version=$(echo "$python_version" | cut -d '.' -f 2)
+if [ "$python_minor_version" -lt 10 ]; then
+    # 检查系统是否为 Debian
+    if [ -f /etc/debian_version ]; then
+        # 替换 sources.list 中的 "bullseye" 为 "bookworm"
+        sed -i 's/bullseye/bookworm/g' /etc/apt/sources.list
+        echo "Replaced 'bullseye' with 'bookworm' in /etc/apt/sources.list"
+        apt update -y
+        DEBIAN_FRONTEND=noninteractive apt upgrade -y
+    else
+        echo "Not a Debian system."
+    fi
+else
+    echo "Python version is 3.10 or higher."
+fi
+
 # 实在不知道要放哪边还不会有权限问题，因此出此下策，放根目录
 
 mkdir -p $mypath || error_exit "创建目录失败"
