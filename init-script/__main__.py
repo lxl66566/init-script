@@ -10,7 +10,7 @@ from .timer import main as timer_main
 from .utils import error_exit
 from .utils.input import get_user_choice
 from .utils.mycache import cache_dir
-from .var import ask, reset
+from .var import DomainPassword
 
 options = f"""
 ALL（所有软件 + 代理 + 定时）
@@ -45,8 +45,9 @@ def reconfig_proxy_options():
         ]
     ):
         case 0:
-            reset()
-            ask()
+            dp = DomainPassword()
+            dp.clear()
+            dp.ask()
             reconfig_all_proxies()
             log.info("已重新配置代理。")
         case 1:

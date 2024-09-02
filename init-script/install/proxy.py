@@ -24,13 +24,9 @@ from ..utils.service import (
     is_service_running,
     reload_or_start_service,
 )
-from ..var import (
-    GET_CERT_DEFAULT_WAIT,
-    GET_CERT_MAX_RETRY,
-    PROXY_PORT,
-    domain,
-    password,
-)
+from ..var import GET_CERT_DEFAULT_WAIT, GET_CERT_MAX_RETRY, PROXY_PORT, DomainPassword
+
+dp = DomainPassword()
 
 cert_crt_ln = BaseCache("cert").load()
 cert_key_ln = BaseCache("key").load()
@@ -60,12 +56,12 @@ def config_caddy():
     if not exists("caddy"):
         log.warn("caddy 未安装，跳过配置...")
         return
-    assert domain(), "域名未设置，拒绝配置 caddy"
+    assert dp.domain(), "域名未设置，拒绝配置 caddy"
     update_blog()
 
     content = (config_path / "Caddyfile").read_text(encoding="utf-8")
     content = content.replace("/absx", str(mypath()))
-    content = content.replace("jp.absx.online", domain())
+    content = content.replace("jp.absx.online", dp.domain())
 
     caddy_file_path = Path("/etc/caddy/Caddyfile")
     caddy_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,8 +94,10 @@ def ln_caddy_cert():
     global cert_crt_ln, cert_key_ln
 
     certs_dir = Path("/var/lib/caddy")
-    cert_crt = next(certs_dir.rglob(domain() + ".crt"))
-    cert_key = next(certs_dir.rglob(domain() + ".key"))
+    domain = dp.domain()
+    assert domain, "域名未设置，拒绝配置 caddy"
+    cert_crt = next(certs_dir.rglob(domain + ".crt"))
+    cert_key = next(certs_dir.rglob(domain + ".key"))
 
     # if not found, raise StopIteration
 
@@ -135,13 +133,17 @@ def config_hysteria():
         log.warn("hysteria 未安装，跳过配置...")
         return
 
+    assert cert_crt_ln and cert_key_ln, "未找到链接的证书。"
+
     with (config_path / "hysteria.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
     config["listen"] = ":" + str(PROXY_PORT["hysteria"])
     config["tls"]["cert"] = str(cert_crt_ln.absolute())
     config["tls"]["key"] = str(cert_key_ln.absolute())
-    config["auth"]["password"] = password()[0]
+    pswd = dp.password()
+    assert pswd, "密码未设置，拒绝配置 hysteria"
+    config["auth"]["password"] = pswd[0]
 
     with open("/etc/hysteria/hysteria.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -173,11 +175,13 @@ def config_trojan():
         log.warn("trojan 未安装，跳过配置...")
         return
 
+    assert cert_crt_ln and cert_key_ln, "未找到链接的证书。"
+
     with (config_path / "trojan.json").open(encoding="utf-8") as f:
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan"])  # trojan-go 需要数字值
-    config["password"] = password()
+    config["password"] = dp.password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
 
@@ -204,6 +208,8 @@ def config_trojan_go():
         log.warn("trojan-go 未安装，跳过配置...")
         return
 
+    assert cert_crt_ln and cert_key_ln, "未找到链接的证书。"
+
     Path("/etc/trojan-go").mkdir(parents=True, exist_ok=True)
     geo_dir = Path("/usr/share/trojan-go/")
     geo_dir.mkdir(parents=True, exist_ok=True)
@@ -212,10 +218,10 @@ def config_trojan_go():
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan-go"])
-    config["password"] = password()
+    config["password"] = dp.password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
-    config["ssl"]["sni"] = domain()
+    config["ssl"]["sni"] = dp.domain()
 
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -293,7 +299,7 @@ def show_all_status():
             f"systemctl status {service} --no-pager", shell=True, check=False
         )
 
-    if domain():
+    if dp.domain():
         show_one_status("caddy")
         show_one_status("hysteria-server@hysteria")
         show_one_status("trojan-go")
@@ -305,7 +311,7 @@ def reconfig_all_proxies():
     """
     重新配置所有代理，并重启所有代理服务
     """
-    if domain():
+    if dp.domain():
         config_caddy()
         config_hysteria()
         config_trojan()

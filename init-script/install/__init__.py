@@ -12,7 +12,7 @@ from ..utils.conf import add_linux_conf
 from ..utils.input import user_input
 from ..utils.mycache import SetCache
 from ..utils.service import restart_service
-from ..var import ask, domain
+from ..var import DomainPassword
 from .fish import fish_add_config, install_fish_on_debian, post_install_fish
 from .install_utils import *
 from .proxy import (
@@ -22,6 +22,8 @@ from .proxy import (
     config_trojan,
     config_trojan_go,
 )
+
+dp = DomainPassword()
 
 
 class PackageList(OrderedDict):
@@ -128,7 +130,7 @@ def init():
     """
     init the package manager.
     """
-    ask()
+    dp.ask()
     # fuck U, snap!
     if distro() == "u":
         try:
@@ -271,7 +273,7 @@ def nix(*args):
 
 
 def pre_install_proxy():
-    if not domain():
+    if not dp.domain():
         print("未设置域名，跳过安装")
         return None
     return True
@@ -464,7 +466,7 @@ packages_list.add(
 
 
 def pre_install_caddy():
-    if not domain():
+    if not dp.domain():
         return None
 
     if pm() == "a":

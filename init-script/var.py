@@ -4,7 +4,6 @@
 
 import logging as log
 from pathlib import Path
-from typing import Optional
 
 from .utils import colored
 from .utils.input import user_input
@@ -26,47 +25,59 @@ GET_CERT_DEFAULT_WAIT = 20  # 获取证书的默认等待时间（秒）
 
 # 自定义配置区域结束，不要更改其他地方
 
-_cache: dict = BaseCache("var").load() or {}
-_domain: Optional[str] = _cache.get("domain")
-_password: list[str] = _cache.get("password") or []
 
-log.debug(f"read domain: {_domain}, password: {_password}")
+class DomainPassword:
+    """
+    cache
+    """
 
+    def __init__(self, test=False):
+        self.base_cache = BaseCache("var", test)
+        self.c = self.base_cache.load() or {}
+        log.debug(f"read domain: {self.domain()}, password: {self.password()}")
 
-def save():
-    _cache["domain"] = _domain
-    _cache["password"] = _password
-    BaseCache("var").save(_cache)
+    def save(self):
+        self.base_cache.save(self.c)
 
+    def clear(self):
+        self.c.pop("domain", None)
+        self.c.pop("password", None)
+        self.save()
+        log.info("已重置域名与密码。")
 
-def reset():
-    global _cache
-    _cache.clear()
-    log.info("已重置域名与密码。")
+    def ask(self):
+        if not self.domain():
+            self.set_domain(
+                user_input(
+                    f"请输入本机域名，若留空则跳过所有{colored('需要 SSL 的代理', 'yellow')}部署: "
+                ).strip()
+            )
+            log.info(f"使用域名：`{self.domain()}`")
+        if not self.domain():
+            log.info("已清空域名。")
+            return
+        if not self.password():
+            self.set_password(
+                user_input(
+                    "请输入密码，不同密码用空格隔开，用于设置代理。在某些场合下只有第一个密码有效: "
+                )
+                .strip()
+                .split(" ")
+            )
+        assert self.password(), "密码不能为空"
+        log.info(f"使用密码：`{self.password()}`")
+        self.save()
 
+    def domain(self):
+        return self.c.get("domain")
 
-def ask():
-    global _domain, _password
+    def password(self):
+        return self.c.get("password") or []
 
-    if not _domain:
-        _domain = user_input(
-            f"请输入本机域名，若留空则跳过所有{colored('需要 SSL 的代理', 'yellow')}部署: "
-        )
-        print(f"使用域名：`{_domain}`")
-    if not _domain:
-        return
-    if not _password:
-        _password = user_input(
-            "请输入密码，不同密码用空格隔开，用于设置代理。在某些场合下只有第一个密码有效: "
-        ).split(" ")
-    assert _password, "密码不能为空"
-    print(f"使用密码：`{_password}`")
-    save()
+    def set_domain(self, domain):
+        self.c["domain"] = domain
+        self.save()
 
-
-def domain():
-    return _domain
-
-
-def password():
-    return _password
+    def set_password(self, password):
+        self.c["password"] = password
+        self.save()

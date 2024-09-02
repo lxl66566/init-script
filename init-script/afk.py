@@ -48,7 +48,7 @@ def remove():
             f"{prefix} ps -q",
             capture_output=True,
         )
-        .stdout.decode()
+        .stdout.decode()  # type: ignore
         .split()
     )
     for name in result:

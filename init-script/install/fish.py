@@ -13,9 +13,9 @@ def install_fish_on_debian():
         f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
         capture_output=True,
         text=True,
-    ).stdout.strip()
+    ).stdout.strip()  # type: ignore
     rc(f"wget {url}{package_name}", cwd="/tmp")
-    rc_sudo("dpkg -i " + package_name, cwd="/tmp")
+    rc_sudo("dpkg -i " + str(package_name), cwd="/tmp")
 
 
 def _remove_init(config_path: Path = FISH_CONFIG_FILE_PATH):

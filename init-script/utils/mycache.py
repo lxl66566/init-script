@@ -1,38 +1,51 @@
 import contextlib
-import functools
 import pathlib
 import pickle
 import shutil
 import tempfile
 import unittest
-from typing import Any
+from typing import Any, Optional
 
-TEST = False
+from .test import EnableTest
 
 
-@functools.lru_cache
 def cache_dir() -> pathlib.Path:
     """
     return the cache directory
     """
-    if not TEST:
-        from ..utils import mypath
+    from ..utils import mypath
 
-        return (mypath() / ".cache").resolve()
-    else:
-        return pathlib.Path(tempfile.TemporaryDirectory(delete=False).name)
+    return (mypath() / ".cache").resolve()
 
 
-class BaseCache:
+class TestCache(EnableTest):
+    def __init__(self, test=False):
+        super().__init__(test)
+        if not self.is_test():
+            self._cache_dir = cache_dir()
+        else:
+            # https://github.com/python/cpython/issues/100131 is a way to solve that, but it's too new
+            # and cannot run on old python version
+            self._cache_dir = pathlib.Path(tempfile.mkdtemp())
+
+    def cache_dir(self) -> pathlib.Path:
+        """
+        return the cache directory
+        """
+        return self._cache_dir
+
+
+class BaseCache(TestCache):
     """
     cache any object
     """
 
-    def __init__(self, name: str) -> None:
-        cache_dir().mkdir(mode=0o777, exist_ok=True)
-        self.file = cache_dir() / name
+    def __init__(self, name: str, test=False) -> None:
+        super().__init__(test)
+        self.cache_dir().mkdir(mode=0o777, exist_ok=True)
+        self.file = self.cache_dir() / name
 
-    def load(self):
+    def load(self) -> Optional[Any]:
         """
         load data
         """
@@ -105,25 +118,29 @@ class SimpleCache:
     """
 
     @staticmethod
+    def cache_dir() -> pathlib.Path:
+        return TestCache(True).cache_dir()
+
+    @staticmethod
     def save(name: str) -> None:
         """
         set a bool value to True quickly
         """
-        (cache_dir() / name).touch(0o777, exist_ok=True)
+        (SimpleCache.cache_dir() / name).touch(0o777, exist_ok=True)
 
     @staticmethod
     def load(name: str) -> bool:
         """
         load a bool value quickly
         """
-        return (cache_dir() / name).exists()
+        return (SimpleCache.cache_dir() / name).exists()
 
     @staticmethod
     def remove(name: str) -> None:
         """
         set a bool value to False quickly
         """
-        (cache_dir() / name).unlink(missing_ok=True)
+        (SimpleCache.cache_dir() / name).unlink(missing_ok=True)
 
 
 class Test(unittest.TestCase):
@@ -160,7 +177,5 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TEST = True
     unittest.main()
-    shutil.rmtree(cache_dir())
-    TEST = False
+    shutil.rmtree(TestCache(True).cache_dir())
