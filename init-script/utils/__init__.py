@@ -30,7 +30,7 @@ def rc(
     """
     rc means run with check.
     """
-    log.info(f"run: `{colored(s, "green")}`")
+    log.info(f"""run: `{colored(s, "green")}`""")
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", True)
     try:
