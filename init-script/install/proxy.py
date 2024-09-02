@@ -20,17 +20,16 @@ from ..utils import *
 from ..utils.constant import SYSTEMD_SERVICE_DIR
 from ..utils.mycache import BaseCache, SimpleCache
 from ..utils.service import (
-    enable_start_service,
     is_service_running,
     reload_or_start_service,
 )
 from ..var import GET_CERT_DEFAULT_WAIT, GET_CERT_MAX_RETRY, PROXY_PORT, DomainPassword
 
-dp = DomainPassword()
+WAITNAME = "proxy.wait"
 
 cert_crt_ln = BaseCache("cert").load()
 cert_key_ln = BaseCache("key").load()
-wait = int(not SimpleCache.load("proxy.wait")) * GET_CERT_DEFAULT_WAIT
+wait = int(not SimpleCache.load(WAITNAME)) * GET_CERT_DEFAULT_WAIT
 config_path = mypath() / "init-script" / "config"
 
 
@@ -56,19 +55,21 @@ def config_caddy():
     if not exists("caddy"):
         log.warn("caddy 未安装，跳过配置...")
         return
-    assert dp.domain(), "域名未设置，拒绝配置 caddy"
+    assert DomainPassword().domain(), "域名未设置，拒绝配置 caddy"
     update_blog()
 
-    content = (config_path / "Caddyfile").read_text(encoding="utf-8")
-    content = content.replace("/absx", str(mypath()))
-    content = content.replace("jp.absx.online", dp.domain())
+    content = (
+        (config_path / "Caddyfile")
+        .read_text(encoding="utf-8")
+        .format(path=str(mypath()).rstrip(os.sep), domain=DomainPassword().domain())
+    )
 
     caddy_file_path = Path("/etc/caddy/Caddyfile")
     caddy_file_path.parent.mkdir(parents=True, exist_ok=True)
     caddy_file_path.write_text(content, encoding="utf-8")
     log.info("Caddyfile has been written.")
 
-    enable_start_service("caddy")
+    reload_or_start_service("caddy")
     assert is_service_running("caddy"), "caddy 未正常启动！"
     for _ in range(GET_CERT_MAX_RETRY):  # 重试次数
         log.info(f"caddy 服务成功启动，等待 caddy 获取证书（{wait} 秒）")
@@ -94,7 +95,7 @@ def ln_caddy_cert():
     global cert_crt_ln, cert_key_ln
 
     certs_dir = Path("/var/lib/caddy")
-    domain = dp.domain()
+    domain = DomainPassword().domain()
     assert domain, "域名未设置，拒绝配置 caddy"
     cert_crt = next(certs_dir.rglob(domain + ".crt"))
     cert_key = next(certs_dir.rglob(domain + ".key"))
@@ -120,7 +121,7 @@ def ln_caddy_cert():
     BaseCache("cert").save(cert_crt_ln)
     BaseCache("key").save(cert_key_ln)
     check_cert()
-    SimpleCache.save("proxy.wait")
+    SimpleCache.save(WAITNAME)
     log.info("证书配置完成")
 
 
@@ -141,7 +142,7 @@ def config_hysteria():
     config["listen"] = ":" + str(PROXY_PORT["hysteria"])
     config["tls"]["cert"] = str(cert_crt_ln.absolute())
     config["tls"]["key"] = str(cert_key_ln.absolute())
-    pswd = dp.password()
+    pswd = DomainPassword().password()
     assert pswd, "密码未设置，拒绝配置 hysteria"
     config["auth"]["password"] = pswd[0]
 
@@ -181,7 +182,7 @@ def config_trojan():
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan"])  # trojan-go 需要数字值
-    config["password"] = dp.password()
+    config["password"] = DomainPassword().password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
 
@@ -218,22 +219,22 @@ def config_trojan_go():
         config = json.load(f)
 
     config["local_port"] = int(PROXY_PORT["trojan-go"])
-    config["password"] = dp.password()
+    config["password"] = DomainPassword().password()
     config["ssl"]["cert"] = str(cert_crt_ln.absolute())
     config["ssl"]["key"] = str(cert_key_ln.absolute())
-    config["ssl"]["sni"] = dp.domain()
+    config["ssl"]["sni"] = DomainPassword().domain()
 
     with open("/etc/trojan-go/config.json", "w") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
     if not (geo_dir / "geoip.dat").exists():
         rc(
-            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202405052210/geoip.dat",
+            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202409012211/geoip.dat",
             cwd=geo_dir,
         )
     if not (geo_dir / "geosite.dat").exists():
         rc(
-            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202405052210/geosite.dat",
+            "wget https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/202409012211/geosite.dat",
             cwd=geo_dir,
         )
     log.info("trojan-go 配置完成")
@@ -299,7 +300,7 @@ def show_all_status():
             f"systemctl status {service} --no-pager", shell=True, check=False
         )
 
-    if dp.domain():
+    if DomainPassword().domain():
         show_one_status("caddy")
         show_one_status("hysteria-server@hysteria")
         show_one_status("trojan-go")
@@ -311,7 +312,8 @@ def reconfig_all_proxies():
     """
     重新配置所有代理，并重启所有代理服务
     """
-    if dp.domain():
+    SimpleCache.remove(WAITNAME)
+    if DomainPassword().domain():
         config_caddy()
         config_hysteria()
         config_trojan()

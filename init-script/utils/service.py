@@ -86,4 +86,4 @@ def reload_or_start_service(service_name: str):
             log.info(f"restart {service_name} success")
     else:
         log.warning(f"Service {service_name} is not running. Starting...")
-        rc_sudo(f"systemctl enable --now {service_name}")
+        enable_start_service(service_name)

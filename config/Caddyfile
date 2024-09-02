@@ -1,4 +1,4 @@
-jp.absx.online
+{domain}
 
-root * /absx/lxl66566.github.io
+root * {path}/lxl66566.github.io
 file_server

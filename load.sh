@@ -21,6 +21,42 @@ run_script() {
     python3 -m init-script "$@"
 }
 
+
+update_source(){
+    # usage: update_source <cache_path> <command>
+    
+    # 检查是否提供了命令参数
+    if [[ -z "$2" ]]; then
+        echo "请提供要执行的命令作为第二个参数，例如：update_source log_command 'git fetch'"
+        exit 1
+    fi
+    
+    FETCH_LOG_FILE="$1/.git_fetch_time.log"
+    current_time=$(date +%s)
+    # 如果日志文件存在，读取上一次 fetch 的时间
+    if [[ -f "$FETCH_LOG_FILE" ]]; then
+        last_fetch_time=$(cat "$FETCH_LOG_FILE")
+    else
+        last_fetch_time=0  # 如果没有记录文件，假设上次 fetch 时间为 0（即很久以前）
+    fi
+    
+    # 计算时间差（以秒为单位）
+    time_diff=$((current_time - last_fetch_time))
+    
+    # 检查时间差是否小于一天（86400秒）
+    if (( time_diff < 86400 )); then
+        echo "距离上一次执行 `$2` 不到一天，跳过此次操作。"
+        exit 0
+    fi
+    
+    # 执行 command
+    eval "$2"
+    
+    # 更新日志文件记录此次 fetch 的时间
+    echo "$current_time" > "$FETCH_LOG_FILE"
+    echo "`$2` 执行完成，时间已记录。"
+}
+
 default="/absx"
 if [ -z "$mypath" ]; then
     export mypath=$default
@@ -34,6 +70,7 @@ printf "安装主目录：$mypath\n"
 lockfile=$mypath"/.lock_for_load" # 避免二次 clone 的问题
 if [ -e $lockfile ]; then
     cd $mypath"/init-script"
+    update_source $mypath "git fetch --all && git reset --hard origin/py"
     run_script
     exit 0
 fi
