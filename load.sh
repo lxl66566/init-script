@@ -8,6 +8,13 @@
 #
 # PLEASE RUN AS ROOT, YOU ARE AWARE OF THE RISKS INVOLVED AND CONTINUE.
 
+# do not open -u (strict mode)
+set -eo pipefail
+
+if [ -n "$debug" ]; then
+    set -x
+fi
+
 _red() {
     printf '\033[0;31;31m%b\033[0m' "$1"
 }
@@ -70,7 +77,7 @@ printf "安装主目录：$mypath\n"
 lockfile=$mypath"/.lock_for_load" # 避免二次 clone 的问题
 if [ -e $lockfile ]; then
     cd $mypath"/init-script"
-    update_source $mypath "git fetch --all && git reset --hard origin/py"
+    update_source $mypath "eval git fetch --all && git reset --hard origin/py"
     run_script
     exit 0
 fi
