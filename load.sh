@@ -53,7 +53,7 @@ update_source(){
     # 检查时间差是否小于一天（86400秒）
     if (( time_diff < 86400 )); then
         echo "距离上一次执行 `$2` 不到一天，跳过此次操作。"
-        exit 0
+        return
     fi
     
     # 执行 command
