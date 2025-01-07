@@ -3,7 +3,6 @@
 import inspect
 import logging as log
 from collections import OrderedDict
-from contextlib import suppress
 from pathlib import Path
 from typing import Callable
 
@@ -602,6 +601,17 @@ packages_list.add(
         pre_install_fun=lambda: pm() != "p",
         install_fun=lambda: bpm("https://github.com/eza-community/eza"),
         depends=["bpm"],
+    )
+)
+
+packages_list.add(
+    Package(
+        "bbr",
+        level=2,
+        pre_install_fun=lambda: True,
+        install_fun=lambda: rc_sudo(
+            f'bash {Path(__file__).parent.parent.parent / "external_scripts/bbr.sh"}'
+        ),
     )
 )
 
