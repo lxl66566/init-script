@@ -31,10 +31,12 @@ enable_bbr() {
     fi
     
     # 启用 BBR
-    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    rm -f /etc/sysctl.d/bbr.conf
+    echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/bbr.conf
+    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/bbr.conf
     
     # 应用新的配置
+    modprobe tcp_bbr || true
     sysctl -p
     
     # 再次检查是否成功启用 BBR

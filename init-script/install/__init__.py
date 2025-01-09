@@ -604,14 +604,20 @@ packages_list.add(
     )
 )
 
+
+def install_bbr():
+    rc_sudo(
+        f'bash {Path(__file__).parent.parent.parent / "external_scripts/bbr.sh"}',
+        check=False,
+    )
+
+
 packages_list.add(
     Package(
         "bbr",
         level=2,
         pre_install_fun=lambda: True,
-        install_fun=lambda: rc_sudo(
-            f'bash {Path(__file__).parent.parent.parent / "external_scripts/bbr.sh"}'
-        ),
+        install_fun=install_bbr,
     )
 )
 

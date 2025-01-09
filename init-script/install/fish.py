@@ -10,7 +10,7 @@ from ..var import FISH_CONFIG_FILE_PATH
 def install_fish_on_debian():
     url = "https://download.opensuse.org/repositories/shells:/fish:/nightly:/master/Debian_10/amd64/"
     package_name = rc(
-        f"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
+        rf"""curl {url} | grep -Po "fish_3\..*?\.deb?" | tail -1""",
         capture_output=True,
         text=True,
     ).stdout.strip()  # type: ignore
