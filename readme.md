@@ -1,5 +1,8 @@
 # init script
 
+> [!CAUTION]
+> 我已全面转向使用 NixOS 部署代理，此脚本已不再更新。参考：[我的 NixOS 配置](https://github.com/lxl66566/nixos-config) | [我的文章](https://absx.pages.dev/articles/linux/nix.html)
+
 <details><summary>背景</summary>
 
 > 因为意识到了[写 bash 脚本](https://github.com/lxl66566/init-script/tree/bash)的愚蠢，改用 python。  
@@ -71,7 +74,3 @@ DISABLE_TUI=1   # 使用传统面板，而非 tui 面板。如果 tui 面板在�
 - 装了 neovim 却不配置？
   - 插件把服务器搞崩过一次，所以不装插件了。
   - 不同人的使用习惯也不同，显然我不能强加我的 keybindings.
-
-## Problems
-
-如果遇到问题，请在 issue 中搜索报错并报告。
